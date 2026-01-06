@@ -8,12 +8,11 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
 # ==========================================
-# [설정] 이메일 발송 정보 (보안 적용)
+# [설정] 이메일 발송 정보 (수정 필요)
 # ==========================================
-# 실제 아이디와 비번은 Streamlit 사이트 설정 화면에서 입력합니다.
-SENDER_EMAIL = st.secrets["SENDER_EMAIL"]
-SENDER_PASSWORD = st.secrets["SENDER_PASSWORD"]
-RECEIVER_EMAIL = "ds1lih@naver.com" # 받는 사람 이메일은 공개되어도 무방하다면 그대로 둡니다.
+SENDER_EMAIL = "disc8275@gmail.com" 
+SENDER_PASSWORD = "axrd kith cizs svzg" 
+RECEIVER_EMAIL = "ds1lih@naver.com"
 
 # ==========================================
 # 1. 페이지 설정 및 스타일
@@ -220,9 +219,9 @@ def main():
     # STEP 0: 기본 정보 입력
     # ----------------------------------
     if current_step == 0:
-        st.title("🩺 디스코 한의원 체질 설문지")
+        st.title("🩺 디스코 한의원 체질 설문")
         
-        # 안내 문구 (요청사항 반영)
+        # 안내 문구
         st.info("이 프로그램은 사상체질병증 한의표준임상진료지침을 바탕으로 제작했습니다. 모든 질문에 솔직하게 답변해 주세요.")
         
         with st.form("info_form"):
@@ -277,12 +276,21 @@ def main():
         st.write("")
         st.write("")
         
-        if st.button("다음 질문 >", use_container_width=True):
-            score_val = OPTIONS.index(choice)
-            st.session_state['answers_score'][q_idx] = score_val
-            st.session_state['answers_log'][q_idx] = f"Q{current_step}. {q_data['q']} : {choice}"
-            go_next()
-            st.rerun()
+        # [수정] 버튼을 2개 컬럼으로 나눔 (이전 / 다음)
+        col_prev, col_next = st.columns(2)
+        
+        with col_prev:
+            if st.button("⬅️ 이전", use_container_width=True):
+                go_prev()
+                st.rerun()
+                
+        with col_next:
+            if st.button("다음 ➡️", use_container_width=True):
+                score_val = OPTIONS.index(choice)
+                st.session_state['answers_score'][q_idx] = score_val
+                st.session_state['answers_log'][q_idx] = f"Q{current_step}. {q_data['q']} : {choice}"
+                go_next()
+                st.rerun()
 
     # ----------------------------------
     # STEP N+1 ~ N+3: 증상 질문 (처방용)
@@ -291,66 +299,89 @@ def main():
         st.progress(1.0)
         st.markdown("<div class='question-text'>거의 다 왔습니다!<br>Q. 아플 때 주로 어떤 느낌인가요?</div>", unsafe_allow_html=True)
         ans = st.radio("통증 유형", ["몸살 기운 (으슬으슬 춥고 열이 남)", "속 문제 (소화가 안 되고, 가슴이 답답하거나 배가 아픔)"], key="sym_pain", horizontal=False)
-        if st.button("다음 >", use_container_width=True):
-            st.session_state['symptom_answers']['pain'] = ans
-            go_next()
-            st.rerun()
+        
+        # [수정] 이전/다음 버튼 배치
+        col_prev, col_next = st.columns(2)
+        with col_prev:
+            if st.button("⬅️ 이전", use_container_width=True):
+                go_prev()
+                st.rerun()
+        with col_next:
+            if st.button("다음 ➡️", use_container_width=True):
+                st.session_state['symptom_answers']['pain'] = ans
+                go_next()
+                st.rerun()
 
     elif current_step == total_q + 2:
         st.progress(1.0)
         st.markdown("<div class='question-text'>Q. 아플 때 땀은 어떻게 나나요?</div>", unsafe_allow_html=True)
         ans = st.radio("땀 유형", ["땀이 거의 나지 않는다", "식은땀이 나거나 땀이 축축하게 난다"], key="sym_sweat", horizontal=False)
-        if st.button("다음 >", use_container_width=True):
-            st.session_state['symptom_answers']['sweat'] = ans
-            go_next()
-            st.rerun()
+        
+        # [수정] 이전/다음 버튼 배치
+        col_prev, col_next = st.columns(2)
+        with col_prev:
+            if st.button("⬅️ 이전", use_container_width=True):
+                go_prev()
+                st.rerun()
+        with col_next:
+            if st.button("다음 ➡️", use_container_width=True):
+                st.session_state['symptom_answers']['sweat'] = ans
+                go_next()
+                st.rerun()
 
     elif current_step == total_q + 3:
         st.progress(1.0)
         st.markdown("<div class='question-text'>Q. 대변 상태는 어떤가요?</div>", unsafe_allow_html=True)
         ans = st.radio("대변 유형", ["변비가 있거나 잘 안 나온다", "설사를 하거나 묽다", "평소와 비슷하다(보통)"], key="sym_stool", horizontal=False)
         
-        if st.button("결과 보기", use_container_width=True):
-            st.session_state['symptom_answers']['stool'] = ans
-            
-            # --- 계산 로직 수행 ---
-            raw_scores = {'TY': 0, 'SY': 0, 'TE': 0, 'SE': 0}
-            type_counts = {'TY': 0, 'SY': 0, 'TE': 0, 'SE': 0}
-            
-            for i, score in enumerate(st.session_state['answers_score']):
-                q_type = QUESTIONS[i]['type']
-                raw_scores[q_type] += score
-                type_counts[q_type] += 1
-            
-            avg_scores = {k: (v / type_counts[k] if type_counts[k] > 0 else 0) for k, v in raw_scores.items()}
-            max_score = max(avg_scores.values())
-            result_types = [k for k, v in avg_scores.items() if v == max_score]
-            my_type_code = result_types[0] # 동점일 경우 첫 번째 타입 기준 (처방용)
-            
-            recommendation = get_recommendation(my_type_code, st.session_state['symptom_answers'])
-            
-            # 이메일 전송
-            with st.spinner("결과 분석 및 전송 중..."):
-                answers_summary = "\n".join(st.session_state['answers_log'])
-                answers_summary += f"\n[증상] Pain: {st.session_state['symptom_answers']['pain']}"
-                answers_summary += f"\n[증상] Sweat: {st.session_state['symptom_answers']['sweat']}"
-                answers_summary += f"\n[증상] Stool: {st.session_state['symptom_answers']['stool']}"
+        # [수정] 이전/결과보기 버튼 배치
+        col_prev, col_next = st.columns(2)
+        with col_prev:
+            if st.button("⬅️ 이전", use_container_width=True):
+                go_prev()
+                st.rerun()
+        with col_next:
+            if st.button("결과 보기", use_container_width=True):
+                st.session_state['symptom_answers']['stool'] = ans
                 
-                send_email_result(
-                    st.session_state['user_info'], my_type_code, avg_scores, recommendation, answers_summary
-                )
-            
-            # 결과 저장
-            st.session_state['final_result'] = {
-                'code': my_type_code,
-                'scores': avg_scores,
-                'rec': recommendation
-            }
-            st.session_state['step'] = 999
-            st.rerun()
+                # --- 계산 로직 수행 ---
+                raw_scores = {'TY': 0, 'SY': 0, 'TE': 0, 'SE': 0}
+                type_counts = {'TY': 0, 'SY': 0, 'TE': 0, 'SE': 0}
+                
+                for i, score in enumerate(st.session_state['answers_score']):
+                    q_type = QUESTIONS[i]['type']
+                    raw_scores[q_type] += score
+                    type_counts[q_type] += 1
+                
+                avg_scores = {k: (v / type_counts[k] if type_counts[k] > 0 else 0) for k, v in raw_scores.items()}
+                max_score = max(avg_scores.values())
+                result_types = [k for k, v in avg_scores.items() if v == max_score]
+                my_type_code = result_types[0] # 동점일 경우 첫 번째 타입 기준 (처방용)
+                
+                recommendation = get_recommendation(my_type_code, st.session_state['symptom_answers'])
+                
+                # 이메일 전송
+                with st.spinner("결과 분석 및 전송 중..."):
+                    answers_summary = "\n".join(st.session_state['answers_log'])
+                    answers_summary += f"\n[증상] Pain: {st.session_state['symptom_answers']['pain']}"
+                    answers_summary += f"\n[증상] Sweat: {st.session_state['symptom_answers']['sweat']}"
+                    answers_summary += f"\n[증상] Stool: {st.session_state['symptom_answers']['stool']}"
+                    
+                    send_email_result(
+                        st.session_state['user_info'], my_type_code, avg_scores, recommendation, answers_summary
+                    )
+                
+                # 결과 저장
+                st.session_state['final_result'] = {
+                    'code': my_type_code,
+                    'scores': avg_scores,
+                    'rec': recommendation
+                }
+                st.session_state['step'] = 999
+                st.rerun()
 
     # ----------------------------------
-    # 결과 화면 (PC 버전 내용 반영)
+    # 결과 화면
     # ----------------------------------
     elif current_step == 999:
         res = st.session_state['final_result']
@@ -379,8 +410,6 @@ def main():
         chart_df = pd.DataFrame({'체질': [TYPE_MAP[k] for k in scores], '점수': list(scores.values())})
         st.bar_chart(chart_df.set_index('체질'))
         
-        
-
         # 처방 표시
         st.success(f"### 💊 추천 처방: {rec['prescription']}")
         st.info(f"**상태:** {rec['condition']}\n\n**설명:** {rec['desc']}")
@@ -389,7 +418,7 @@ def main():
         st.header(f"📋 {my_name} 상세 건강 가이드")
 
         # =========================================================
-        # PC 버전과 동일한 상세 내용 출력 (markdown, warning, info, table 사용)
+        # 체질별 상세 설명 (기존과 동일)
         # =========================================================
         if my_code == 'SE': # 소음인
             st.markdown("""
@@ -529,11 +558,9 @@ def main():
             }
             st.table(pd.DataFrame(food_data).set_index("분류"))
 
-        
-
         st.markdown("---")
-        st.caption(f"자세한 결과가 {RECEIVER_EMAIL}로 전송되었습니다.")
-        
+        # [수정] 이메일 발송 안내 문구 삭제됨
+
         # 인쇄 버튼
         print_btn_code = """
         <script>function printPage() { window.parent.print(); }</script>
