@@ -28,30 +28,25 @@ st.set_page_config(page_title="디스코 한의원 체질 설문", layout="cente
 st.markdown("""
     <style>
     /* [화면 표시용 스타일] */
-    
     h1 { 
         font-size: 1.5rem; 
         font-weight: 700;
     }
-    
     h3 { 
         color: #16a085; 
         font-size: 1.2rem; 
     }
-    
     .stButton button {
         height: 3rem;
         font-size: 1.2rem;
         border-radius: 10px;
     }
-    
     div[data-testid="stRadio"] label {
         font-size: 1.1rem !important;
         padding: 10px 0;
         cursor: pointer;
         color: var(--text-color) !important; 
     }
-    
     .question-text {
         font-size: 1.3rem;
         font-weight: bold;
@@ -61,7 +56,6 @@ st.markdown("""
     }
     
     /* [공통 테이블 스타일] */
-    /* Streamlit 기본 표 대신 HTML 표를 사용하여 스타일 통일 및 하얀 공백 이슈 해결 */
     .guide-table {
         width: 100%;
         border-collapse: collapse;
@@ -70,8 +64,8 @@ st.markdown("""
         font-size: 1rem;
     }
     .guide-table th {
-        background-color: #f0f2f6; /* 헤더 배경색 (연회색) */
-        color: #333; /* 헤더 글자색 (진회색) */
+        background-color: #f0f2f6;
+        color: #333;
         padding: 12px;
         border: 1px solid #ddd;
         text-align: center;
@@ -81,10 +75,9 @@ st.markdown("""
         padding: 10px;
         border: 1px solid #ddd;
         vertical-align: top;
-        color: var(--text-color); /* 본문 글자색은 테마 따름 */
+        color: var(--text-color);
     }
     
-    /* 다크모드 대응: 헤더가 너무 밝게 뜨지 않도록 조정 (선택사항) */
     @media (prefers-color-scheme: dark) {
         .guide-table th {
             background-color: #444;
@@ -100,7 +93,6 @@ st.markdown("""
     /* [인쇄 전용 스타일]                                           */
     /* ============================================================ */
     @media print {
-        
         * { 
             color: black !important; 
             background-color: white !important;
@@ -108,7 +100,6 @@ st.markdown("""
             print-color-adjust: exact !important; 
         }
 
-        /* 인쇄 시 테이블 스타일 강제 */
         .guide-table th {
             background-color: #eee !important;
             color: black !important;
@@ -327,6 +318,45 @@ def get_recommendation(constitution, symptoms):
     return {"condition": "정보 부족", "desc": "", "prescription": ""}
 
 # ==========================================
+# 바로가기 함수 (가상 데이터 생성)
+# ==========================================
+def go_shortcut(selected_type):
+    # 1. 사용자 정보가 없으면 기본값 설정
+    if 'name' not in st.session_state['user_info']:
+        st.session_state['user_info'] = {
+            'name': '방문자', 'birth': '-', 
+            'height': '-', 'weight': '-', 
+            'meds': '-', 'history': '-', 'comment': '체질 바로보기 선택'
+        }
+    
+    # 2. 그래프용 점수 조작 (선택한 체질 100점, 나머지 20점)
+    fake_scores = {'TY': 20, 'SY': 20, 'TE': 20, 'SE': 20}
+    fake_scores[selected_type] = 100.0
+    
+    # 3. 처방 추천을 위한 가상 증상 세팅 (전형적인 증상)
+    fake_symptoms = {}
+    if selected_type == 'SE':
+        fake_symptoms = {'pain': "몸살 기운 (으슬으슬 춥고 열이 남)", 'sweat': "땀이 거의 나지 않는다", 'stool': "설사를 하거나 묽다"}
+    elif selected_type == 'SY':
+        fake_symptoms = {'pain': "속 문제", 'stool': "변비가 있거나 잘 안 나온다", 'sweat': "보통"}
+    elif selected_type == 'TE':
+        fake_symptoms = {'pain': "몸살 기운 (으슬으슬 춥고 열이 남)", 'sweat': "보통", 'stool': "보통"}
+    else: # TY
+        fake_symptoms = {'pain': "보통", 'sweat': "보통", 'stool': "보통"}
+        
+    # 4. 추천 처방 계산
+    rec = get_recommendation(selected_type, fake_symptoms)
+    
+    # 5. 결과 저장 및 이동
+    st.session_state['final_result'] = {
+        'code': selected_type,
+        'scores': fake_scores,
+        'rec': rec
+    }
+    st.session_state['step'] = 999
+    st.rerun()
+
+# ==========================================
 # 화면 렌더링 함수
 # ==========================================
 def go_next():
@@ -370,6 +400,34 @@ def main():
                     }
                     go_next()
                     st.rerun()
+
+        # ==========================================
+        # [신규] 체질별 결과 바로가기 버튼
+        # ==========================================
+        st.write("")
+        st.markdown("---")
+        st.subheader("⚡ 체질별 결과 바로보기 (설문 건너뛰기)")
+        st.caption("아래 버튼을 누르면 설문 없이 해당 체질의 상세 가이드와 처방 예시를 바로 확인합니다.")
+        
+        # 이름 입력값이 있으면 세션에 미리 저장 (결과 페이지에 표시되도록)
+        if name:
+             st.session_state['user_info']['name'] = name
+             st.session_state['user_info']['birth'] = birth
+
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            if st.button("☀️ 태양인", use_container_width=True):
+                go_shortcut('TY')
+        with c2:
+            if st.button("🔥 소양인", use_container_width=True):
+                go_shortcut('SY')
+        with c3:
+            if st.button("🌲 태음인", use_container_width=True):
+                go_shortcut('TE')
+        with c4:
+            if st.button("💧 소음인", use_container_width=True):
+                go_shortcut('SE')
+
 
     # ----------------------------------
     # STEP 1 ~ N: 개별 질문
@@ -505,7 +563,7 @@ def main():
                 st.session_state['step'] = 999
                 st.rerun()
 
-# ----------------------------------
+    # ----------------------------------
     # [STEP 999] 통합 결과 화면
     # ----------------------------------
     elif current_step == 999:
@@ -547,13 +605,12 @@ def main():
         st.markdown("---")
         
         # =========================================================
-        # 1. 상세 건강 가이드 (기존) & 2. 질환별/약재 상세 가이드 (신규) 통합 출력
+        # 상세 건강 가이드 출력
         # =========================================================
         
         if my_code == 'TE': # 태음인
             st.header("📋 태음인 (Taeum-in) 상세 가이드")
             
-            # --- [기존] 특징 및 생활 수칙 ---
             st.markdown("""
             **1. 태음인의 특징**
             * 섭취한 에너지를 소모시키고 배설시키는 것이 취약합니다.
@@ -573,7 +630,6 @@ def main():
             3. **운동:** 땀을 흘릴 정도의 유산소 운동(열량 소모 많은 운동)이 좋습니다.
             """)
             
-            # --- [기존] 식품군별 분류표 (HTML 테이블로 변경) ---
             st.subheader("🍽️ 식품군별 권장 음식 상세")
             st.markdown("""
             <table class="guide-table">
@@ -593,7 +649,6 @@ def main():
             
             st.markdown("---")
 
-            # --- [신규] 생애주기별 특징 및 약재/영양제 요약 ---
             st.subheader("🏥 생애주기 및 질환별 가이드")
             st.markdown("""
             **특성:** 간대폐소(肝大肺小). 흡수 기능은 강하나 발산과 배출 기능이 약해 노폐물이 잘 쌓이고, 호흡기와 심혈관이 취약함.
@@ -641,7 +696,6 @@ def main():
         elif my_code == 'SY': # 소양인
             st.header("📋 소양인 (Soyang-in) 상세 가이드")
             
-            # --- [기존] 특징 및 생활 수칙 ---
             st.markdown("""
             **1. 소양인의 특징**
             * 몸에 열이 많습니다.
@@ -662,7 +716,6 @@ def main():
             4. **운동:** 하체를 강화시켜 주는 운동(등산, 자전거 등)이 좋습니다.
             """)
 
-            # --- [기존] 식품군별 분류표 (HTML 테이블로 변경) ---
             st.subheader("🍽️ 식품군별 권장 음식 상세")
             st.markdown("""
             <table class="guide-table">
@@ -682,7 +735,6 @@ def main():
             
             st.markdown("---")
 
-            # --- [신규] 생애주기별 특징 및 약재/영양제 요약 ---
             st.subheader("🏥 생애주기 및 질환별 가이드")
             st.markdown("""
             **특성:** 비대신소(脾大腎小). 소화력은 좋으나 신장/방광/자궁이 약함. 상체로 열이 잘 오르고(상열), 하체가 약하며 진액(수분)이 부족하기 쉬움.
@@ -729,7 +781,6 @@ def main():
         elif my_code == 'SE': # 소음인
             st.header("📋 소음인 (Soum-in) 상세 가이드")
             
-            # --- [기존] 특징 및 생활 수칙 ---
             st.markdown("""
             **1. 소음인의 특징**
             * 몸이 찬 편입니다.
@@ -750,7 +801,6 @@ def main():
             3. **식사:** 규칙적인 식사가 중요하며, 따뜻한 성질의 음식이나 약간의 자극성 있는 조미료가 좋습니다.
             """)
 
-            # --- [기존] 식품군별 분류표 (HTML 테이블로 변경) ---
             st.subheader("🍽️ 식품군별 권장 음식 상세")
             st.markdown("""
             <table class="guide-table">
@@ -770,7 +820,6 @@ def main():
             
             st.markdown("---")
 
-            # --- [신규] 생애주기별 특징 및 약재/영양제 요약 ---
             st.subheader("🏥 생애주기 및 질환별 가이드")
             st.markdown("""
             **특성:** 신대비소(腎大脾小). 신장/생식기 기능은 좋으나 위장이 차고 소화력이 약함. 몸이 차고(냉증), 예민하며 체력이 약해지기 쉬움.
@@ -818,7 +867,6 @@ def main():
         elif my_code == 'TY': # 태양인
             st.header("📋 태양인 (Taeyang-in) 상세 가이드")
             
-            # --- [기존] 특징 및 생활 수칙 ---
             st.markdown("""
             **1. 태양인의 특징**
             * 에너지를 축적하는 기능은 약하고, 발산/소모시키는 기능은 강합니다.
@@ -838,7 +886,6 @@ def main():
             3. **마음:** 조급해하지 말고 여유를 가지며, 원만한 인간관계를 유지하세요.
             """)
 
-            # --- [기존] 식품군별 분류표 (HTML 테이블로 변경) ---
             st.subheader("🍽️ 식품군별 권장 음식 상세")
             st.markdown("""
             <table class="guide-table">
@@ -858,7 +905,6 @@ def main():
             
             st.markdown("---")
 
-            # --- [신규] 생애주기별 특징 및 약재/영양제 요약 ---
             st.subheader("🏥 생애주기 및 질환별 가이드")
             st.markdown("""
             **특성:** 폐대간소(肺大肝小). 폐 기능은 강하나 간 기능이 매우 약함. 기운이 위로 솟구쳐 하체가 약해지기 쉽고 구토 증상이 잦을 수 있음. (가장 드문 체질)
@@ -904,7 +950,7 @@ def main():
         
         st.markdown("---")
         
-        # 인쇄 버튼 (인쇄 시에는 보이지 않음)
+        # 인쇄 버튼
         print_btn_code = """
         <script>function printPage() { window.parent.print(); }</script>
         <button onclick="printPage()" style="width:100%; padding:10px; background:white; border:1px solid #ddd; border-radius:5px; color:black; cursor:pointer;">🖨️ 결과 저장/인쇄</button>
