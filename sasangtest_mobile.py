@@ -8,10 +8,10 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
 # ==========================================
-# [설정] 이메일 발송 정보 (수정 필요)
+# [설정] 이메일 발송 정보 (보안 유의)
 # ==========================================
 SENDER_EMAIL = "disc8275@gmail.com" 
-SENDER_PASSWORD = "axrd kith cizs svzg" 
+SENDER_PASSWORD = "xxxx xxxx xxxx xxxx" # (실제 앱 비밀번호로 변경해주세요)
 RECEIVER_EMAIL = "ds1lih@naver.com"
 
 # ==========================================
@@ -19,26 +19,37 @@ RECEIVER_EMAIL = "ds1lih@naver.com"
 # ==========================================
 st.set_page_config(page_title="사상체질 진단", layout="centered")
 
-# CSS 스타일: 모바일 터치 최적화 및 폰트 크기 조정
+# CSS 스타일: 배경색과 글자색 고정을 제거하여 테마에 반응하도록 수정
 st.markdown("""
     <style>
-    .main { background-color: #f9f9f9; }
-    h1 { color: #2c3e50; font-size: 1.5rem; }
-    h3 { color: #16a085; font-size: 1.2rem; }
+    /* 배경색 강제 지정(.main) 삭제 -> 다크모드/라이트모드 자동 반응 */
+    
+    h1 { 
+        /* color: #2c3e50; 삭제 -> 테마에 따라 자동 변경 */
+        font-size: 1.5rem; 
+    }
+    
+    h3 { 
+        color: var(--primary-color); /* 스트림릿 기본 포인트 컬러 사용 */
+        font-size: 1.2rem; 
+    }
+    
     .stButton button {
         height: 3rem;
         font-size: 1.2rem;
         border-radius: 10px;
     }
+    
     div[data-testid="stRadio"] label {
         font-size: 1.1rem !important;
         padding: 10px 0;
         cursor: pointer;
     }
+    
     .question-text {
         font-size: 1.3rem;
         font-weight: bold;
-        color: #333;
+        /* color: #333; 삭제 -> 다크모드에서 흰색, 라이트모드에서 검은색 자동 적용 */
         margin-bottom: 20px;
         line-height: 1.5;
     }
@@ -280,7 +291,7 @@ def main():
         col_prev, col_next = st.columns(2)
         
         with col_prev:
-            if st.button("⬅️ 이전", use_container_width=True):
+            if st.button(⬅️ 이전", use_container_width=True):
                 go_prev()
                 st.rerun()
                 
@@ -559,12 +570,11 @@ def main():
             st.table(pd.DataFrame(food_data).set_index("분류"))
 
         st.markdown("---")
-        # [수정] 이메일 발송 안내 문구 삭제됨
 
         # 인쇄 버튼
         print_btn_code = """
         <script>function printPage() { window.parent.print(); }</script>
-        <button onclick="printPage()" style="width:100%; padding:10px; background:white; border:1px solid #ddd; border-radius:5px;">🖨️ 결과 저장/인쇄</button>
+        <button onclick="printPage()" style="width:100%; padding:10px; background:white; border:1px solid #ddd; border-radius:5px; color:black;">🖨️ 결과 저장/인쇄</button>
         """
         components.html(print_btn_code, height=50)
         
