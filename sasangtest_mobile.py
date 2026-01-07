@@ -291,7 +291,7 @@ def main():
         col_prev, col_next = st.columns(2)
         
         with col_prev:
-            if st.button(⬅️ 이전", use_container_width=True):
+            if st.button("⬅️ 이전", use_container_width=True):
                 go_prev()
                 st.rerun()
                 
