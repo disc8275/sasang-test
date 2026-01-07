@@ -238,6 +238,7 @@ def send_email_result(info, constitution, scores, recommendation, answers_summar
         subject = f"[사상체질진단 결과] {info['name']}님 ({info['birth']})"
         scores_str = ", ".join([f"{TYPE_MAP[k]}: {v:.1f}점" for k, v in scores.items()])
 
+        # [수정됨] 이메일에는 추천 처방이 포함됨
         body = f"""
 [사용자 기본 정보]
 - 이름: {info['name']}
@@ -254,9 +255,10 @@ def send_email_result(info, constitution, scores, recommendation, answers_summar
 - 체질: {TYPE_MAP.get(constitution, '알수없음')}
 - 점수: {scores_str}
 
-[추천 처방]
+[추천 처방 및 병증]
 - 병증: {recommendation['condition']}
 - 처방: {recommendation['prescription']}
+- 설명: {recommendation['desc']}
 
 [설문 응답 상세]
 {answers_summary}
@@ -569,7 +571,7 @@ def main():
     elif current_step == 999:
         res = st.session_state['final_result']
         my_code = res['code']
-        rec = res['rec']
+        # rec = res['rec']  <-- 화면에서 처방을 숨기기 위해 변수 할당만 하고 아래에서 사용하지 않습니다.
         scores = res['scores']
 
         st.balloons()
@@ -582,7 +584,7 @@ def main():
             tied_names = [TYPE_MAP[k] for k in tied_keys]
             title_text = " 또는 ".join(tied_names)
             st.title(f"🎉 당신은 [{title_text}]일 확률이 같습니다!")
-            st.warning(f"📢 **알림:** 점수가 동일하여 **{title_text}** 모두 해당될 가능성이 있습니다.\n\n시스템은 그중 **[{TYPE_MAP[my_code]}]**을 기준으로 상세 결과와 처방을 보여드립니다.")
+            st.warning(f"📢 **알림:** 점수가 동일하여 **{title_text}** 모두 해당될 가능성이 있습니다.\n\n시스템은 그중 **[{TYPE_MAP[my_code]}]**을 기준으로 상세 가이드를 보여드립니다.")
             my_name = TYPE_MAP[my_code]
         else:
             my_name = TYPE_MAP[my_code]
@@ -593,9 +595,10 @@ def main():
         chart_df = pd.DataFrame({'체질': [TYPE_MAP[k] for k in scores], '점수': list(scores.values())})
         st.bar_chart(chart_df.set_index('체질'))
         
-        # 처방 표시
-        st.success(f"### 💊 추천 처방: {rec['prescription']}")
-        st.info(f"**상태:** {rec['condition']}\n\n**설명:** {rec['desc']}")
+        # ============================================================
+        # [수정됨] 화면에서 추천 처방(Prescription) 및 병증 표시 제거
+        # (원래 있던 st.success 및 st.info 블록을 삭제하였습니다.)
+        # ============================================================
 
         # ------------------------------------------
         # [중요] 인쇄 시 페이지 나누기 (Page Break)
