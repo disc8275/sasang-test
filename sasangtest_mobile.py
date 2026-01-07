@@ -17,7 +17,7 @@ RECEIVER_EMAIL = "ds1lih@naver.com"
 # ==========================================
 # 1. 페이지 설정 및 스타일
 # ==========================================
-st.set_page_config(page_title="사상체질 모바일 진단", layout="centered")
+st.set_page_config(page_title="사상체질 진단", layout="centered")
 
 # CSS 스타일: 모바일 터치 최적화 및 폰트 크기 조정
 st.markdown("""
@@ -219,7 +219,7 @@ def main():
     # STEP 0: 기본 정보 입력
     # ----------------------------------
     if current_step == 0:
-        st.title("🩺 디스코 한의원 체질 설문")
+        st.title("🩺 사상체질 자가진단")
         
         # 안내 문구
         st.info("이 프로그램은 사상체질병증 한의표준임상진료지침을 바탕으로 제작했습니다. 모든 질문에 솔직하게 답변해 주세요.")
