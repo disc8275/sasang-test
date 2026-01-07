@@ -8,29 +8,28 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
 # ==========================================
-# [설정] 이메일 발송 정보 (보안 유의)
+# [설정] 이메일 발송 정보
 # ==========================================
-SENDER_EMAIL = "disc8275@gmail.com" 
-SENDER_PASSWORD = "xxxx xxxx xxxx xxxx" # (실제 앱 비밀번호로 변경해주세요)
+SENDER_EMAIL = "disc8275@gmail.com"
+SENDER_PASSWORD = "axrd kith cizs svzg"
 RECEIVER_EMAIL = "ds1lih@naver.com"
 
 # ==========================================
 # 1. 페이지 설정 및 스타일
 # ==========================================
-st.set_page_config(page_title="사상체질 진단", layout="centered")
+st.set_page_config(page_title="디스코 한의원 체질 설문", layout="centered")
 
-# CSS 스타일: 배경색과 글자색 고정을 제거하여 테마에 반응하도록 수정
 st.markdown("""
     <style>
-    /* 배경색 강제 지정(.main) 삭제 -> 다크모드/라이트모드 자동 반응 */
+    /* [화면 표시용 스타일] */
     
     h1 { 
-        /* color: #2c3e50; 삭제 -> 테마에 따라 자동 변경 */
         font-size: 1.5rem; 
+        font-weight: 700;
     }
     
     h3 { 
-        color: var(--primary-color); /* 스트림릿 기본 포인트 컬러 사용 */
+        color: #16a085; 
         font-size: 1.2rem; 
     }
     
@@ -44,22 +43,131 @@ st.markdown("""
         font-size: 1.1rem !important;
         padding: 10px 0;
         cursor: pointer;
+        color: var(--text-color) !important; 
     }
     
     .question-text {
         font-size: 1.3rem;
         font-weight: bold;
-        /* color: #333; 삭제 -> 다크모드에서 흰색, 라이트모드에서 검은색 자동 적용 */
+        color: var(--text-color); 
         margin-bottom: 20px;
         line-height: 1.5;
     }
     
-    @media print {
-        section[data-testid="stSidebar"], header, footer, .stAppDeployButton, button, iframe, .stButton, div[data-testid="stHorizontalBlock"], .stProgress {
-            display: none !important;
+    /* [공통 테이블 스타일] */
+    /* Streamlit 기본 표 대신 HTML 표를 사용하여 스타일 통일 및 하얀 공백 이슈 해결 */
+    .guide-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        margin-bottom: 20px;
+        font-size: 1rem;
+    }
+    .guide-table th {
+        background-color: #f0f2f6; /* 헤더 배경색 (연회색) */
+        color: #333; /* 헤더 글자색 (진회색) */
+        padding: 12px;
+        border: 1px solid #ddd;
+        text-align: center;
+        font-weight: bold;
+    }
+    .guide-table td {
+        padding: 10px;
+        border: 1px solid #ddd;
+        vertical-align: top;
+        color: var(--text-color); /* 본문 글자색은 테마 따름 */
+    }
+    
+    /* 다크모드 대응: 헤더가 너무 밝게 뜨지 않도록 조정 (선택사항) */
+    @media (prefers-color-scheme: dark) {
+        .guide-table th {
+            background-color: #444;
+            color: #fff;
+            border-color: #666;
         }
-        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        html, body { height: auto !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; }
+        .guide-table td {
+            border-color: #666;
+        }
+    }
+
+    /* ============================================================ */
+    /* [인쇄 전용 스타일]                                           */
+    /* ============================================================ */
+    @media print {
+        
+        * { 
+            color: black !important; 
+            background-color: white !important;
+            -webkit-print-color-adjust: exact !important; 
+            print-color-adjust: exact !important; 
+        }
+
+        /* 인쇄 시 테이블 스타일 강제 */
+        .guide-table th {
+            background-color: #eee !important;
+            color: black !important;
+            border: 1px solid black !important;
+        }
+        .guide-table td {
+            color: black !important;
+            border: 1px solid black !important;
+        }
+
+        .page-break { 
+            page-break-before: always !important; 
+            display: block !important;
+            height: 1px;
+        }
+
+        @page {
+            margin: 0mm !important; 
+            size: auto;
+        }
+
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+        }
+        
+        .stApp {
+            min-height: 0 !important;
+            height: auto !important;
+            overflow: visible !important;
+            background-color: white !important;
+        }
+
+        .block-container {
+            margin: 15mm 15mm 0 15mm !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            width: auto !important;
+        }
+
+        section[data-testid="stSidebar"], 
+        header, 
+        footer, 
+        .stAppDeployButton, 
+        button, 
+        .stButton, 
+        div[data-testid="stHorizontalBlock"], 
+        .stProgress,
+        iframe {
+            display: none !important;
+            height: 0 !important;
+            width: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+        }
+        
+        iframe[title="streamlit.components.v1.components.html"] {
+            display: none !important;
+            height: 0 !important;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -113,11 +221,11 @@ OPTIONS = ["전혀 아니다", "아니다", "보통이다", "그렇다", "매우
 # 세션 상태 초기화
 # ==========================================
 if 'step' not in st.session_state:
-    st.session_state['step'] = 0  # 0: 정보입력, 1~N: 질문, N+1~: 증상, 999: 결과
+    st.session_state['step'] = 0  
 if 'user_info' not in st.session_state:
     st.session_state['user_info'] = {}
 if 'answers_score' not in st.session_state:
-    st.session_state['answers_score'] = [2] * len(QUESTIONS) # 기본값 보통(2)
+    st.session_state['answers_score'] = [2] * len(QUESTIONS) 
 if 'answers_log' not in st.session_state:
     st.session_state['answers_log'] = [""] * len(QUESTIONS)
 if 'symptom_answers' not in st.session_state:
@@ -230,7 +338,7 @@ def main():
     # STEP 0: 기본 정보 입력
     # ----------------------------------
     if current_step == 0:
-        st.title("🩺 사상체질 자가진단")
+        st.title("🩺 디스코 한의원 체질 설문")
         
         # 안내 문구
         st.info("이 프로그램은 사상체질병증 한의표준임상진료지침을 바탕으로 제작했습니다. 모든 질문에 솔직하게 답변해 주세요.")
@@ -287,7 +395,7 @@ def main():
         st.write("")
         st.write("")
         
-        # [수정] 버튼을 2개 컬럼으로 나눔 (이전 / 다음)
+        # 버튼을 2개 컬럼으로 나눔 (이전 / 다음)
         col_prev, col_next = st.columns(2)
         
         with col_prev:
@@ -311,7 +419,7 @@ def main():
         st.markdown("<div class='question-text'>거의 다 왔습니다!<br>Q. 아플 때 주로 어떤 느낌인가요?</div>", unsafe_allow_html=True)
         ans = st.radio("통증 유형", ["몸살 기운 (으슬으슬 춥고 열이 남)", "속 문제 (소화가 안 되고, 가슴이 답답하거나 배가 아픔)"], key="sym_pain", horizontal=False)
         
-        # [수정] 이전/다음 버튼 배치
+        # 이전/다음 버튼 배치
         col_prev, col_next = st.columns(2)
         with col_prev:
             if st.button("⬅️ 이전", use_container_width=True):
@@ -328,7 +436,7 @@ def main():
         st.markdown("<div class='question-text'>Q. 아플 때 땀은 어떻게 나나요?</div>", unsafe_allow_html=True)
         ans = st.radio("땀 유형", ["땀이 거의 나지 않는다", "식은땀이 나거나 땀이 축축하게 난다"], key="sym_sweat", horizontal=False)
         
-        # [수정] 이전/다음 버튼 배치
+        # 이전/다음 버튼 배치
         col_prev, col_next = st.columns(2)
         with col_prev:
             if st.button("⬅️ 이전", use_container_width=True):
@@ -345,7 +453,7 @@ def main():
         st.markdown("<div class='question-text'>Q. 대변 상태는 어떤가요?</div>", unsafe_allow_html=True)
         ans = st.radio("대변 유형", ["변비가 있거나 잘 안 나온다", "설사를 하거나 묽다", "평소와 비슷하다(보통)"], key="sym_stool", horizontal=False)
         
-        # [수정] 이전/결과보기 버튼 배치
+        # 이전/결과보기 버튼 배치
         col_prev, col_next = st.columns(2)
         with col_prev:
             if st.button("⬅️ 이전", use_container_width=True):
@@ -392,7 +500,7 @@ def main():
                 st.rerun()
 
     # ----------------------------------
-    # 결과 화면
+    # [STEP 999] 통합 결과 화면
     # ----------------------------------
     elif current_step == 999:
         res = st.session_state['final_result']
@@ -425,83 +533,21 @@ def main():
         st.success(f"### 💊 추천 처방: {rec['prescription']}")
         st.info(f"**상태:** {rec['condition']}\n\n**설명:** {rec['desc']}")
 
+        # ------------------------------------------
+        # [중요] 인쇄 시 페이지 나누기 (Page Break)
+        # ------------------------------------------
+        st.markdown('<div class="page-break"></div>', unsafe_allow_html=True)
+
         st.markdown("---")
-        st.header(f"📋 {my_name} 상세 건강 가이드")
-
+        
         # =========================================================
-        # 체질별 상세 설명 (기존과 동일)
+        # 1. 상세 건강 가이드 (기존) & 2. 질환별/약재 상세 가이드 (신규) 통합 출력
         # =========================================================
-        if my_code == 'SE': # 소음인
-            st.markdown("""
-            **1. 소음인의 특징**
-            * 몸이 찬 편입니다.
-            * 전반적인 체력이 약한 편입니다.
-            * 소화기의 기능이 약해지기 쉽습니다.
-            """)
-            st.subheader("🚨 건강이 안 좋아지면 나타나는 증상")
-            st.warning("""
-            * **전신:** 무리를 하지 않았는데도 피로감이 지속되고, 아침에 일어나기 힘듭니다.
-            * **소화:** 식욕이 떨어지고 소화가 잘 안 되며, 배에 가스가 찹니다.
-            * **배설:** 설사를 자주 하거나, 대변이 가늘면서 시원하지 않습니다.
-            * **기타:** 손발과 배가 차고, 특별한 이유 없이 마음이 늘 불안합니다.
-            """)
-            st.info("""
-            **💡 평소 생활 실천 사항**
-            1. **보온:** 항상 몸을 따뜻하게 합니다.
-            2. **휴식:** 과로를 피하고 적절한 휴식이 필요합니다.
-            3. **식사:** 규칙적인 식사가 중요하며, 따뜻한 성질의 음식이나 약간의 자극성 있는 조미료가 좋습니다.
-            """)
+        
+        if my_code == 'TE': # 태음인
+            st.header("📋 태음인 (Taeum-in) 상세 가이드")
             
-            st.subheader("🥗 소음인에게 이로운 음식")
-            food_data = {
-                "분류": ["곡류군", "저지방 어육류", "중지방 어육류", "고지방 어육류", "채소군", "지방군/우유/과일"],
-                "권장 음식": [
-                    "백미, 차조, 찹쌀, 감자, 옥수수 / (떡, 누룽지)",
-                    "닭고기(껍질/기름 제거), 명태, 조기, 도미, 대구, 민어, 농어, 가자미, 멸치",
-                    "삼치, 갈치, 장어, 민어, 도루묵",
-                    "닭고기(껍질 포함), 개고기, 뱀장어",
-                    "깻잎, 냉이, 시금치, 양배추, 브로콜리, 마늘, 파, 고추, 양파, 부추, 쑥",
-                    "들깨, 참기름, 산양유 / 사과, 귤, 토마토, 복숭아, 대추, 유자"
-                ]
-            }
-            st.table(pd.DataFrame(food_data).set_index("분류"))
-
-        elif my_code == 'SY': # 소양인
-            st.markdown("""
-            **1. 소양인의 특징**
-            * 몸에 열이 많습니다.
-            * 신경이 예민하고, 피부, 장, 방광 등이 과민한 편입니다.
-            """)
-            st.subheader("🚨 건강이 안 좋아지면 나타나는 증상")
-            st.warning("""
-            * **수면/정서:** 잠들기 어렵고 자주 깨며, 마음이 조급하고 불안합니다.
-            * **배설:** 소변을 자주 보거나 색이 진하며, 변비나 설사가 잦습니다.
-            * **신체:** 얼굴이나 피부 트러블이 잦고, 입이 마르며 갈증이 납니다.
-            * **소화:** 가슴이 답답하고 속이 쓰리거나 구역질을 합니다.
-            """)
-            st.info("""
-            **💡 평소 생활 실천 사항**
-            1. **수면/마음:** 충분한 수면을 취하고, 매사에 여유를 가지려 노력하세요.
-            2. **식사:** 천천히 식사하며, 서늘한 성질의 음식/해물/채소가 좋습니다.
-            3. **피할 것:** 맵고 짠 음식, 성질이 더운 음식을 피하세요.
-            4. **운동:** 하체를 강화시켜 주는 운동(등산, 자전거 등)이 좋습니다.
-            """)
-            
-            st.subheader("🥗 소양인에게 이로운 음식")
-            food_data = {
-                "분류": ["곡류군", "저지방 어육류", "중지방 어육류", "고지방 어육류", "채소군", "지방군/우유/과일"],
-                "권장 음식": [
-                    "보리, 팥, 녹두 / (메밀, 고구마, 토란)",
-                    "돼지고기(살코기), 오리고기, 복어, 굴, 새우, 오징어, 낙지, 조개, 게, 해삼",
-                    "돼지고기(안심), 계란 / (두부, 고등어, 꽁치)",
-                    "삼겹살, 족발, 돼지갈비, 베이컨",
-                    "오이, 가지, 배추, 상추, 우엉, 숙주나물, 죽순",
-                    "참깨, 참기름, 우유 / 딸기, 수박, 바나나, 참외, 메론, 키위"
-                ]
-            }
-            st.table(pd.DataFrame(food_data).set_index("분류"))
-
-        elif my_code == 'TE': # 태음인
+            # --- [기존] 특징 및 생활 수칙 ---
             st.markdown("""
             **1. 태음인의 특징**
             * 섭취한 에너지를 소모시키고 배설시키는 것이 취약합니다.
@@ -521,21 +567,252 @@ def main():
             3. **운동:** 땀을 흘릴 정도의 유산소 운동(열량 소모 많은 운동)이 좋습니다.
             """)
             
-            st.subheader("🥗 태음인에게 이로운 음식")
-            food_data = {
-                "분류": ["곡류군", "저지방 어육류", "중지방 어육류", "고지방 어육류", "채소군", "지방군/우유/과일"],
-                "권장 음식": [
-                    "현미, 율무, 콩, 고구마, 옥수수, 토란, 밤, 마, 잣, 호두, 땅콩",
-                    "소고기(사태, 홍두깨), 대구, 조기, 명태, 민어, 오징어",
-                    "소고기(등심, 안심), 고등어, 꽁치, 갈치, 두부, 콩비지",
-                    "소갈비, 뱀장어, 유부, 치즈",
-                    "무, 호박, 콩나물, 고사리, 버섯, 김, 미역, 다시마, 도라지, 연근, 당근",
-                    "들기름, 올리브유, 우유, 두유 / 배, 매실, 자두, 살구"
-                ]
-            }
-            st.table(pd.DataFrame(food_data).set_index("분류"))
+            # --- [기존] 식품군별 분류표 (HTML 테이블로 변경) ---
+            st.subheader("🍽️ 식품군별 권장 음식 상세")
+            st.markdown("""
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>권장 음식</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>곡류군</td><td>현미, 율무, 콩, 고구마, 옥수수, 토란, 밤, 마, 잣, 호두, 땅콩</td></tr>
+                <tr><td>저지방 어육류</td><td>소고기(사태, 홍두깨), 대구, 조기, 명태, 민어, 오징어</td></tr>
+                <tr><td>중지방 어육류</td><td>소고기(등심, 안심), 고등어, 꽁치, 갈치, 두부, 콩비지</td></tr>
+                <tr><td>고지방 어육류</td><td>소갈비, 뱀장어, 유부, 치즈</td></tr>
+                <tr><td>채소군</td><td>무, 호박, 콩나물, 고사리, 버섯, 김, 미역, 다시마, 도라지, 연근, 당근</td></tr>
+                <tr><td>지방군/우유/과일</td><td>들기름, 올리브유, 우유, 두유 / 배, 매실, 자두, 살구</td></tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+
+            # --- [신규] 생애주기별 특징 및 약재/영양제 요약 ---
+            st.subheader("🏥 생애주기 및 질환별 가이드")
+            st.markdown("""
+            **특성:** 간대폐소(肝大肺小). 흡수 기능은 강하나 발산과 배출 기능이 약해 노폐물이 잘 쌓이고, 호흡기와 심혈관이 취약함.
+
+            * **노화 (대사/순환):** 혈액순환 장애, 고혈압, 당뇨, 고지혈증, 협심증, 중풍, 치매, 비만, 간암, 대장암
+            * **수험생/청소년:** 지구력은 좋으나 비만하기 쉽고, 호흡기 약화로 인한 집중력 저하.
+            * **여성:** 다낭성 난소 증후군, 비만형 생리불순.
+            * **일반 (간/장):** 지방간, 변비, 과민성 대장(설사보다는 가스 참).
+
+            ### 🥗 추천 약재·음식·영양제
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>추천 목록 및 효능 요약</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-weight:bold;">한약재</td>
+                    <td>
+                        **녹용:** 기혈 보강, 소아 성장 및 노인 항노화의 핵심 약재.<br>
+                        **맥문동·길경(도라지):** 약한 폐/기관지를 윤택하게 하고 가래 배출.<br>
+                        **갈근(칡):** 목덜미 긴장을 풀고(수험생), 갱년기 열감 해소.<br>
+                        **의이인(율무):** 습담(노폐물) 제거, 다이어트 및 부종 완화.
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">음식</td>
+                    <td>
+                        **소고기:** 양질의 단백질 공급원.<br>
+                        **무, 배, 연근:** 폐 기운을 돕고 소화를 촉진.<br>
+                        **호두, 잣:** 뇌 기능 활성화(치매/수험생) 및 변비 예방.
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">영양제</td>
+                    <td>
+                        **오메가-3:** 혈행 개선, 고지혈증 예방 (태음인 필수).<br>
+                        **비타민 A/D:** 호흡기 점막 보호 및 면역력 강화.<br>
+                        **밀크씨슬:** 간의 해독 작용 보조 (간열이 많은 경우 주의).
+                    </td>
+                </tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
+
+        elif my_code == 'SY': # 소양인
+            st.header("📋 소양인 (Soyang-in) 상세 가이드")
+            
+            # --- [기존] 특징 및 생활 수칙 ---
+            st.markdown("""
+            **1. 소양인의 특징**
+            * 몸에 열이 많습니다.
+            * 신경이 예민하고, 피부, 장, 방광 등이 과민한 편입니다.
+            """)
+            st.subheader("🚨 건강이 안 좋아지면 나타나는 증상")
+            st.warning("""
+            * **수면/정서:** 잠들기 어렵고 자주 깨며, 마음이 조급하고 불안합니다.
+            * **배설:** 소변을 자주 보거나 색이 진하며, 변비나 설사가 잦습니다.
+            * **신체:** 얼굴이나 피부 트러블이 잦고, 입이 마르며 갈증이 납니다.
+            * **소화:** 가슴이 답답하고 속이 쓰리거나 구역질을 합니다.
+            """)
+            st.info("""
+            **💡 평소 생활 실천 사항**
+            1. **수면/마음:** 충분한 수면을 취하고, 매사에 여유를 가지려 노력하세요.
+            2. **식사:** 천천히 식사하며, 서늘한 성질의 음식/해물/채소가 좋습니다.
+            3. **피할 것:** 맵고 짠 음식, 성질이 더운 음식을 피하세요.
+            4. **운동:** 하체를 강화시켜 주는 운동(등산, 자전거 등)이 좋습니다.
+            """)
+
+            # --- [기존] 식품군별 분류표 (HTML 테이블로 변경) ---
+            st.subheader("🍽️ 식품군별 권장 음식 상세")
+            st.markdown("""
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>권장 음식</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>곡류군</td><td>보리, 팥, 녹두 / (메밀, 고구마, 토란)</td></tr>
+                <tr><td>저지방 어육류</td><td>돼지고기(살코기), 오리고기, 복어, 굴, 새우, 오징어, 낙지, 조개, 게, 해삼</td></tr>
+                <tr><td>중지방 어육류</td><td>돼지고기(안심), 계란 / (두부, 고등어, 꽁치)</td></tr>
+                <tr><td>고지방 어육류</td><td>삼겹살, 족발, 돼지갈비, 베이컨</td></tr>
+                <tr><td>채소군</td><td>오이, 가지, 배추, 상추, 우엉, 숙주나물, 죽순</td></tr>
+                <tr><td>지방군/우유/과일</td><td>참깨, 참기름, 우유 / 딸기, 수박, 바나나, 참외, 메론, 키위</td></tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+
+            # --- [신규] 생애주기별 특징 및 약재/영양제 요약 ---
+            st.subheader("🏥 생애주기 및 질환별 가이드")
+            st.markdown("""
+            **특성:** 비대신소(脾大腎小). 소화력은 좋으나 신장/방광/자궁이 약함. 상체로 열이 잘 오르고(상열), 하체가 약하며 진액(수분)이 부족하기 쉬움.
+
+            * **노화 (비뇨/골격):** 전립선 비대, 요실금, 골다공증, 안구건조, 뇌출혈, 심근경색
+            * **수험생/청소년:** 성조숙증 주의, ADHD 성향(산만함), 열로 인한 두통.
+            * **여성:** 질 건조증, 방광염, 상열감 심한 갱년기.
+            * **일반 (위장/탈모):** 스트레스성 위염(속쓰림), 정수리 열로 인한 탈모.
+
+            ### 🥗 추천 약재·음식·영양제
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>추천 목록 및 효능 요약</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-weight:bold;">한약재</td>
+                    <td>
+                        **숙지황:** 신장 기운 보강(생리, 뼈), 진액 보충(안구건조).<br>
+                        **구기자·산수유:** 하체 강화, 정력 증진, 눈 피로 해소.<br>
+                        **복령:** 소변을 잘 나오게 하고 마음을 안정시킴(불면증).
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">음식</td>
+                    <td>
+                        **돼지고기, 오리고기:** 찬 성질로 몸의 화기를 내리고 보양.<br>
+                        **수박, 참외, 오이:** 천연 이뇨작용 및 체내 열 배출.<br>
+                        **굴, 전복:** 바다의 음기를 머금어 신장 보강 및 피부 미용.
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">영양제</td>
+                    <td>
+                        **알로에:** 위장의 열을 내리고 배변 활동 보조.<br>
+                        **마그네슘:** 신경 과흥분 조절(불면, 눈떨림) 및 근육 이완.<br>
+                        **콜라겐:** 진액 부족으로 인한 피부 노화 및 관절 건조 예방.
+                    </td>
+                </tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
+
+        elif my_code == 'SE': # 소음인
+            st.header("📋 소음인 (Soum-in) 상세 가이드")
+            
+            # --- [기존] 특징 및 생활 수칙 ---
+            st.markdown("""
+            **1. 소음인의 특징**
+            * 몸이 찬 편입니다.
+            * 전반적인 체력이 약한 편입니다.
+            * 소화기의 기능이 약해지기 쉽습니다.
+            """)
+            st.subheader("🚨 건강이 안 좋아지면 나타나는 증상")
+            st.warning("""
+            * **전신:** 무리를 하지 않았는데도 피로감이 지속되고, 아침에 일어나기 힘듭니다.
+            * **소화:** 식욕이 떨어지고 소화가 잘 안 되며, 배에 가스가 찹니다.
+            * **배설:** 설사를 자주 하거나, 대변이 가늘면서 시원하지 않습니다.
+            * **기타:** 손발과 배가 차고, 특별한 이유 없이 마음이 늘 불안합니다.
+            """)
+            st.info("""
+            **💡 평소 생활 실천 사항**
+            1. **보온:** 항상 몸을 따뜻하게 합니다.
+            2. **휴식:** 과로를 피하고 적절한 휴식이 필요합니다.
+            3. **식사:** 규칙적인 식사가 중요하며, 따뜻한 성질의 음식이나 약간의 자극성 있는 조미료가 좋습니다.
+            """)
+
+            # --- [기존] 식품군별 분류표 (HTML 테이블로 변경) ---
+            st.subheader("🍽️ 식품군별 권장 음식 상세")
+            st.markdown("""
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>권장 음식</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>곡류군</td><td>백미, 차조, 찹쌀, 감자, 옥수수 / (떡, 누룽지)</td></tr>
+                <tr><td>저지방 어육류</td><td>닭고기(껍질/기름 제거), 명태, 조기, 도미, 대구, 민어, 농어, 가자미, 멸치</td></tr>
+                <tr><td>중지방 어육류</td><td>삼치, 갈치, 장어, 민어, 도루묵</td></tr>
+                <tr><td>고지방 어육류</td><td>닭고기(껍질 포함), 개고기, 뱀장어</td></tr>
+                <tr><td>채소군</td><td>깻잎, 냉이, 시금치, 양배추, 브로콜리, 마늘, 파, 고추, 양파, 부추, 쑥</td></tr>
+                <tr><td>지방군/우유/과일</td><td>들깨, 참기름, 산양유 / 사과, 귤, 토마토, 복숭아, 대추, 유자</td></tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+
+            # --- [신규] 생애주기별 특징 및 약재/영양제 요약 ---
+            st.subheader("🏥 생애주기 및 질환별 가이드")
+            st.markdown("""
+            **특성:** 신대비소(腎大脾小). 신장/생식기 기능은 좋으나 위장이 차고 소화력이 약함. 몸이 차고(냉증), 예민하며 체력이 약해지기 쉬움.
+
+            * **노화 (기력/소화):** 소화 기능 저하, 근감소증, 수족냉증, 기력 감퇴, 위암
+            * **수험생/청소년:** 체력 부족, 시험 불안, 예민성 복통.
+            * **여성:** 심한 생리통(냉증), 빈혈, 수족냉증.
+            * **일반 (면역/장):** 잦은 감기, 만성 설사, 멀미.
+
+            ### 🥗 추천 약재·음식·영양제
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>추천 목록 및 효능 요약</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-weight:bold;">한약재</td>
+                    <td>
+                        **인삼(홍삼):** 원기 회복, 소화기 강화, 면역력 증진 (소음인 최고 약재).<br>
+                        **당귀·천궁:** 혈액을 생성하고 순환시켜 생리통 및 빈혈 개선.<br>
+                        **계피(육계)·생강(건강):** 뱃속을 따뜻하게 하여 소화 불량 및 냉증 개선.<br>
+                        **쑥(애엽):** 자궁을 따뜻하게 하여 부인과 질환 예방.
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">음식</td>
+                    <td>
+                        **닭고기:** 따뜻한 성질의 단백질로 기력 보충.<br>
+                        **마늘, 고추, 부추:** 신진대사를 높이고 체온을 유지.<br>
+                        **꿀, 대추:** 위장을 편안하게 하고 신경을 안정(불면증).
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">영양제</td>
+                    <td>
+                        **비타민 B군:** 에너지 대사를 높여 만성 피로 회복.<br>
+                        **철분/엽산:** 빈혈 예방 및 혈액 생성 보조.<br>
+                        **프로폴리스:** 따뜻한 성질의 천연 항생제로 면역력 강화.
+                    </td>
+                </tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
 
         elif my_code == 'TY': # 태양인
+            st.header("📋 태양인 (Taeyang-in) 상세 가이드")
+            
+            # --- [기존] 특징 및 생활 수칙 ---
             st.markdown("""
             **1. 태양인의 특징**
             * 에너지를 축적하는 기능은 약하고, 발산/소모시키는 기능은 강합니다.
@@ -554,27 +831,77 @@ def main():
             2. **운동:** 과격한 운동은 피하고, 허리/하체 근력 강화 운동을 하세요.
             3. **마음:** 조급해하지 말고 여유를 가지며, 원만한 인간관계를 유지하세요.
             """)
+
+            # --- [기존] 식품군별 분류표 (HTML 테이블로 변경) ---
+            st.subheader("🍽️ 식품군별 권장 음식 상세")
+            st.markdown("""
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>권장 음식</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>곡류군</td><td>메밀(국수, 묵, 밥) / (보리, 녹두, 팥)</td></tr>
+                <tr><td>저지방 어육류</td><td>굴, 새우, 게, 오징어, 문어, 전복, 조개, 해삼, 홍합 / (흰살생선)</td></tr>
+                <tr><td>중지방 어육류</td><td>(사용 가능) 고등어, 꽁치, 장어</td></tr>
+                <tr><td>고지방 어육류</td><td>(해당 없음 / 육류는 피하는 것이 좋음)</td></tr>
+                <tr><td>채소군</td><td>상추, 깻잎, 배추, 오이, 가지, 시금치, 우엉, 숙주나물, 죽순</td></tr>
+                <tr><td>지방군/우유/과일</td><td>참깨 / 포도, 머루, 다래, 감, 키위, 파인애플, 오렌지</td></tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
             
-            st.subheader("🥗 태양인에게 이로운 음식")
-            food_data = {
-                "분류": ["곡류군", "저지방 어육류", "중지방 어육류", "고지방 어육류", "채소군", "지방군/우유/과일"],
-                "권장 음식": [
-                    "메밀(국수, 묵, 밥) / (보리, 녹두, 팥)",
-                    "굴, 새우, 게, 오징어, 문어, 전복, 조개, 해삼, 홍합 / (흰살생선)",
-                    "(사용 가능) 고등어, 꽁치, 장어",
-                    "(해당 없음 / 육류는 피하는 것이 좋음)",
-                    "상추, 깻잎, 배추, 오이, 가지, 시금치, 우엉, 숙주나물, 죽순",
-                    "참깨 / 포도, 머루, 다래, 감, 키위, 파인애플, 오렌지"
-                ]
-            }
-            st.table(pd.DataFrame(food_data).set_index("분류"))
+            st.markdown("---")
 
+            # --- [신규] 생애주기별 특징 및 약재/영양제 요약 ---
+            st.subheader("🏥 생애주기 및 질환별 가이드")
+            st.markdown("""
+            **특성:** 폐대간소(肺大肝小). 폐 기능은 강하나 간 기능이 매우 약함. 기운이 위로 솟구쳐 하체가 약해지기 쉽고 구토 증상이 잦을 수 있음. (가장 드문 체질)
+
+            * **노화 (근골격):** 하체 무력감, 다리에 힘이 풀림, 삼킴 장애(열격), 면역계 질환, 마비 질환
+            * **수험생/청소년:** 독창적이나 화를 참지 못함.
+            * **여성:** 원인 불명의 불임, 심한 입덧.
+            * **일반 (간/피부):** 약물 과민 반응(간 해독력 저하), 아토피 등 피부 질환.
+
+            ### 🥗 추천 약재·음식·영양제
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>추천 목록 및 효능 요약</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-weight:bold;">한약재</td>
+                    <td>
+                        **오가피:** 근골격을 튼튼하게 하여 하체 무력감 보강.<br>
+                        **모과:** 근육의 경직을 풀고 위장 편안하게 함.<br>
+                        **다래(미후도):** 위로 치솟는 기운을 내리고 열을 식힘.
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">음식</td>
+                    <td>
+                        **해산물(문어, 조개, 게):** 타우린이 간 기능을 돕고 피로 회복.<br>
+                        **메밀:** 몸의 열을 내리고 소화를 도움.<br>
+                        **포도, 키위:** 진액을 생성하고 피로를 풂.
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">영양제</td>
+                    <td>
+                        **클로렐라/스피루리나:** 엽록소가 풍부한 해조류로 간 해독 및 항산화.<br>
+                        **MSM (식이유황):** 해독 작용 및 관절/연골 건강 보조.<br>
+                        **유산균:** 육식보다는 채식 위주의 식단과 함께 장 건강 관리.
+                    </td>
+                </tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
+            
         st.markdown("---")
-
-        # 인쇄 버튼
+        
+        # 인쇄 버튼 (인쇄 시에는 보이지 않음)
         print_btn_code = """
         <script>function printPage() { window.parent.print(); }</script>
-        <button onclick="printPage()" style="width:100%; padding:10px; background:white; border:1px solid #ddd; border-radius:5px; color:black;">🖨️ 결과 저장/인쇄</button>
+        <button onclick="printPage()" style="width:100%; padding:10px; background:white; border:1px solid #ddd; border-radius:5px; color:black; cursor:pointer;">🖨️ 결과 저장/인쇄</button>
         """
         components.html(print_btn_code, height=50)
         
