@@ -8,11 +8,17 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
 # ==========================================
-# [설정] 이메일 발송 정보 (반드시 수정 필요)
+# [설정] 이메일 발송 정보 (보안 적용)
 # ==========================================
-SENDER_EMAIL = "disc8275@gmail.com" 
-SENDER_PASSWORD = "axrd kith cizs svzg" 
-RECEIVER_EMAIL = "ds1lih@naver.com"
+try:
+    SENDER_EMAIL = st.secrets["SENDER_EMAIL"]
+    SENDER_PASSWORD = st.secrets["SENDER_PASSWORD"]
+except:
+    # 로컬 테스트용 더미 값 (실제 배포시 secrets 설정 필수)
+    SENDER_EMAIL = "test@example.com"
+    SENDER_PASSWORD = "password"
+
+RECEIVER_EMAIL = "ds1lih@naver.com" 
 
 # ==========================================
 # 1. 페이지 설정 및 스타일
