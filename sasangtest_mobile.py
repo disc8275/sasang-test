@@ -8,17 +8,11 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
 # ==========================================
-# [설정] 이메일 발송 정보 (보안 적용)
+# [설정] 이메일 발송 정보 (반드시 수정 필요)
 # ==========================================
-try:
-    SENDER_EMAIL = st.secrets["SENDER_EMAIL"]
-    SENDER_PASSWORD = st.secrets["SENDER_PASSWORD"]
-except:
-    # 로컬 테스트용 더미 값 (실제 배포시 secrets 설정 필수)
-    SENDER_EMAIL = "test@example.com"
-    SENDER_PASSWORD = "password"
-
-RECEIVER_EMAIL = "ds1lih@naver.com" 
+SENDER_EMAIL = "disc8275@gmail.com" 
+SENDER_PASSWORD = "axrd kith cizs svzg" 
+RECEIVER_EMAIL = "ds1lih@naver.com"
 
 # ==========================================
 # 1. 페이지 설정 및 스타일
@@ -90,7 +84,7 @@ st.markdown("""
     }
 
     /* ============================================================ */
-    /* [인쇄 전용 스타일]                                           */
+    /* [인쇄 전용 스타일]                                            */
     /* ============================================================ */
     @media print {
         * { 
@@ -166,6 +160,32 @@ st.markdown("""
             height: 0 !important;
         }
     }
+/* [추가] 체질 명칭 가로 배열 및 검정색 설정 */
+    .constitution-container {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        background-color: #ffffff; /* 배경 흰색 */
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid #dddddd;
+        margin: 20px 0;
+    }
+    .constitution-box {
+        text-align: center;
+        flex: 1;
+    }
+    .constitution-label {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #000000 !important; /* 글자색 검정 고정 */
+        display: block;
+        margin-bottom: 5px;
+    }
+    .constitution-score {
+        font-size: 1.1rem;
+        color: #333333 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -238,7 +258,6 @@ def send_email_result(info, constitution, scores, recommendation, answers_summar
         subject = f"[사상체질진단 결과] {info['name']}님 ({info['birth']})"
         scores_str = ", ".join([f"{TYPE_MAP[k]}: {v:.1f}점" for k, v in scores.items()])
 
-        # [수정됨] 이메일에는 추천 처방이 포함됨
         body = f"""
 [사용자 기본 정보]
 - 이름: {info['name']}
@@ -304,7 +323,7 @@ def get_recommendation(constitution, symptoms):
                 return {"condition": "소양인 소양상풍병 (열기가 갇힘)", "desc": "머리가 아프고 몸에 열이 나며, 가슴이 답답하고 아픈 증상으로 발전하기 쉽습니다.", "prescription": "형방패독산, 형방도적산, 형방사백산 등"}
         else: 
             if stool == "변비가 있거나 잘 안 나온다":
-                return {"condition": "소양인 흉격열병 (가슴에 열이 꽉 참)", "desc": "변비가 심하고 얼굴이 붉어지며 갈증을 자주 느낍니다.", "prescription": "형방사백산, 지황백호탕, 양격산화탕 등"}
+                return {"condition": "소양인 흉격열병 (가슴에 열이 꽉 참)", "desc": "변비가 심하고 얼굴이 붉어지며 갈증을 자주 느킵니다.", "prescription": "형방사백산, 지황백호탕, 양격산화탕 등"}
             else:
                 return {"condition": "소양인 음허오열병 (신장 기운 약화)", "desc": "오후에 얼굴에 열이 오르거나 허리/다리가 약해진 느낌이에요.", "prescription": "독활지황탕, 숙지황고삼탕 등"}
 
@@ -319,11 +338,7 @@ def get_recommendation(constitution, symptoms):
     
     return {"condition": "정보 부족", "desc": "", "prescription": ""}
 
-# ==========================================
-# 바로가기 함수 (가상 데이터 생성)
-# ==========================================
 def go_shortcut(selected_type):
-    # 1. 사용자 정보가 없으면 기본값 설정
     if 'name' not in st.session_state['user_info']:
         st.session_state['user_info'] = {
             'name': '방문자', 'birth': '-', 
@@ -331,11 +346,9 @@ def go_shortcut(selected_type):
             'meds': '-', 'history': '-', 'comment': '체질 바로보기 선택'
         }
     
-    # 2. 그래프용 점수 조작 (선택한 체질 100점, 나머지 20점)
     fake_scores = {'TY': 20, 'SY': 20, 'TE': 20, 'SE': 20}
     fake_scores[selected_type] = 100.0
     
-    # 3. 처방 추천을 위한 가상 증상 세팅 (전형적인 증상)
     fake_symptoms = {}
     if selected_type == 'SE':
         fake_symptoms = {'pain': "몸살 기운 (으슬으슬 춥고 열이 남)", 'sweat': "땀이 거의 나지 않는다", 'stool': "설사를 하거나 묽다"}
@@ -346,10 +359,8 @@ def go_shortcut(selected_type):
     else: # TY
         fake_symptoms = {'pain': "보통", 'sweat': "보통", 'stool': "보통"}
         
-    # 4. 추천 처방 계산
     rec = get_recommendation(selected_type, fake_symptoms)
     
-    # 5. 결과 저장 및 이동
     st.session_state['final_result'] = {
         'code': selected_type,
         'scores': fake_scores,
@@ -376,9 +387,7 @@ def main():
     # STEP 0: 기본 정보 입력
     # ----------------------------------
     if current_step == 0:
-        st.title("🩺 디스코 한의원 체질 설문")
-        
-        # 안내 문구
+        st.markdown("<h1 style='text-align: center;'>디스코 한의원 체질 설문</h1>", unsafe_allow_html=True)
         st.info("이 프로그램은 사상체질병증 한의표준임상진료지침을 바탕으로 제작했습니다. 모든 질문에 솔직하게 답변해 주세요.")
         
         with st.form("info_form"):
@@ -403,15 +412,11 @@ def main():
                     go_next()
                     st.rerun()
 
-        # ==========================================
-        # [신규] 체질별 결과 바로가기 버튼
-        # ==========================================
         st.write("")
         st.markdown("---")
         st.subheader("⚡ 체질별 결과 바로보기 (설문 건너뛰기)")
         st.caption("아래 버튼을 누르면 설문 없이 해당 체질의 상세 가이드와 처방 예시를 바로 확인합니다.")
         
-        # 이름 입력값이 있으면 세션에 미리 저장 (결과 페이지에 표시되도록)
         if name:
              st.session_state['user_info']['name'] = name
              st.session_state['user_info']['birth'] = birth
@@ -438,17 +443,14 @@ def main():
         q_idx = current_step - 1
         q_data = QUESTIONS[q_idx]
         
-        # 진행률 표시
         progress = q_idx / total_q
         st.progress(progress)
         st.caption(f"질문 {current_step} / {total_q}")
         
         st.markdown(f"<div class='question-text'>Q{current_step}.<br>{q_data['q']}</div>", unsafe_allow_html=True)
         
-        # 이전 선택값 불러오기 (없으면 '보통이다')
         default_idx = st.session_state['answers_score'][q_idx]
         
-        # 수직 라디오 버튼 (horizontal=False)
         choice = st.radio(
             "답변을 선택하세요",
             OPTIONS,
@@ -461,7 +463,6 @@ def main():
         st.write("")
         st.write("")
         
-        # 버튼을 2개 컬럼으로 나눔 (이전 / 다음)
         col_prev, col_next = st.columns(2)
         
         with col_prev:
@@ -478,14 +479,13 @@ def main():
                 st.rerun()
 
     # ----------------------------------
-    # STEP N+1 ~ N+3: 증상 질문 (처방용)
+    # STEP N+1 ~ N+3: 증상 질문
     # ----------------------------------
     elif current_step == total_q + 1:
         st.progress(1.0)
         st.markdown("<div class='question-text'>거의 다 왔습니다!<br>Q. 아플 때 주로 어떤 느낌인가요?</div>", unsafe_allow_html=True)
         ans = st.radio("통증 유형", ["몸살 기운 (으슬으슬 춥고 열이 남)", "속 문제 (소화가 안 되고, 가슴이 답답하거나 배가 아픔)"], key="sym_pain", horizontal=False)
         
-        # 이전/다음 버튼 배치
         col_prev, col_next = st.columns(2)
         with col_prev:
             if st.button("⬅️ 이전", use_container_width=True):
@@ -502,7 +502,6 @@ def main():
         st.markdown("<div class='question-text'>Q. 아플 때 땀은 어떻게 나나요?</div>", unsafe_allow_html=True)
         ans = st.radio("땀 유형", ["땀이 거의 나지 않는다", "식은땀이 나거나 땀이 축축하게 난다"], key="sym_sweat", horizontal=False)
         
-        # 이전/다음 버튼 배치
         col_prev, col_next = st.columns(2)
         with col_prev:
             if st.button("⬅️ 이전", use_container_width=True):
@@ -519,7 +518,6 @@ def main():
         st.markdown("<div class='question-text'>Q. 대변 상태는 어떤가요?</div>", unsafe_allow_html=True)
         ans = st.radio("대변 유형", ["변비가 있거나 잘 안 나온다", "설사를 하거나 묽다", "평소와 비슷하다(보통)"], key="sym_stool", horizontal=False)
         
-        # 이전/결과보기 버튼 배치
         col_prev, col_next = st.columns(2)
         with col_prev:
             if st.button("⬅️ 이전", use_container_width=True):
@@ -529,7 +527,6 @@ def main():
             if st.button("결과 보기", use_container_width=True):
                 st.session_state['symptom_answers']['stool'] = ans
                 
-                # --- 계산 로직 수행 ---
                 raw_scores = {'TY': 0, 'SY': 0, 'TE': 0, 'SE': 0}
                 type_counts = {'TY': 0, 'SY': 0, 'TE': 0, 'SE': 0}
                 
@@ -541,11 +538,10 @@ def main():
                 avg_scores = {k: (v / type_counts[k] if type_counts[k] > 0 else 0) for k, v in raw_scores.items()}
                 max_score = max(avg_scores.values())
                 result_types = [k for k, v in avg_scores.items() if v == max_score]
-                my_type_code = result_types[0] # 동점일 경우 첫 번째 타입 기준 (처방용)
+                my_type_code = result_types[0] 
                 
                 recommendation = get_recommendation(my_type_code, st.session_state['symptom_answers'])
                 
-                # 이메일 전송
                 with st.spinner("결과 분석 및 전송 중..."):
                     answers_summary = "\n".join(st.session_state['answers_log'])
                     answers_summary += f"\n[증상] Pain: {st.session_state['symptom_answers']['pain']}"
@@ -556,7 +552,6 @@ def main():
                         st.session_state['user_info'], my_type_code, avg_scores, recommendation, answers_summary
                     )
                 
-                # 결과 저장
                 st.session_state['final_result'] = {
                     'code': my_type_code,
                     'scores': avg_scores,
@@ -565,54 +560,81 @@ def main():
                 st.session_state['step'] = 999
                 st.rerun()
 
-    # ----------------------------------
-    # [STEP 999] 통합 결과 화면
+# ----------------------------------
+    # [STEP 999] 통합 결과 화면 (순서 고정 버전)
     # ----------------------------------
     elif current_step == 999:
         res = st.session_state['final_result']
         my_code = res['code']
-        # rec = res['rec']  <-- 화면에서 처방을 숨기기 위해 변수 할당만 하고 아래에서 사용하지 않습니다.
         scores = res['scores']
 
         st.balloons()
         
-        # 동점자 처리 및 타이틀
+        # 제목 표시
         max_score = max(scores.values())
         tied_keys = [k for k, v in scores.items() if v == max_score]
 
         if len(tied_keys) > 1:
             tied_names = [TYPE_MAP[k] for k in tied_keys]
             title_text = " 또는 ".join(tied_names)
-            st.title(f"🎉 당신은 [{title_text}]일 확률이 같습니다!")
-            st.warning(f"📢 **알림:** 점수가 동일하여 **{title_text}** 모두 해당될 가능성이 있습니다.\n\n시스템은 그중 **[{TYPE_MAP[my_code]}]**을 기준으로 상세 가이드를 보여드립니다.")
-            my_name = TYPE_MAP[my_code]
+            st.title(f"🎉 [{title_text}] 확률이 동일합니다!")
         else:
-            my_name = TYPE_MAP[my_code]
-            st.title(f"🎉 당신은 [{my_name}] 입니다!")
+            st.title(f"🎉 당신은 [{TYPE_MAP[my_code]}] 입니다!")
 
-        # 차트 표시
-        st.write("체질별 점수")
-        chart_df = pd.DataFrame({'체질': [TYPE_MAP[k] for k in scores], '점수': list(scores.values())})
+        st.write("### 📊 체질별 분석 점수")
+        
+        # 1. 상단 요약 박스 (순서: TY -> TE -> SY -> SE)
+        st.markdown(f"""
+            <div class="constitution-container">
+                <div class="constitution-box">
+                    <span class="constitution-label">태양인</span>
+                    <span class="constitution-score">{scores.get('TY', 0):.1f}점</span>
+                </div>
+                <div class="constitution-box">
+                    <span class="constitution-label">태음인</span>
+                    <span class="constitution-score">{scores.get('TE', 0):.1f}점</span>
+                </div>
+                <div class="constitution-box">
+                    <span class="constitution-label">소양인</span>
+                    <span class="constitution-score">{scores.get('SY', 0):.1f}점</span>
+                </div>
+                <div class="constitution-box">
+                    <span class="constitution-label">소음인</span>
+                    <span class="constitution-score">{scores.get('SE', 0):.1f}점</span>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        st.write("") 
+        
+# 2. 하단 막대 차트 순서 고정 (태양 -> 태음 -> 소양 -> 소음)
+        ordered_keys = ['TY', 'TE', 'SY', 'SE']
+        ordered_names = [TYPE_MAP[k] for k in ordered_keys]
+        
+        chart_data = {
+            '체질': ordered_names,
+            '점수': [scores.get(k, 0) for k in ordered_keys]
+        }
+        chart_df = pd.DataFrame(chart_data)
+        
+        # [핵심 수정] 범주형(Categorical) 타입을 사용하여 정렬 순서를 강제로 고정합니다.
+        chart_df['체질'] = pd.Categorical(chart_df['체질'], categories=ordered_names, ordered=True)
+        
+        # 차트 출력 (정렬된 상태 유지)
         st.bar_chart(chart_df.set_index('체질'))
         
-        # ============================================================
-        # [수정됨] 화면에서 추천 처방(Prescription) 및 병증 표시 제거
-        # (원래 있던 st.success 및 st.info 블록을 삭제하였습니다.)
-        # ============================================================
-
-        # ------------------------------------------
-        # [중요] 인쇄 시 페이지 나누기 (Page Break)
-        # ------------------------------------------
         st.markdown('<div class="page-break"></div>', unsafe_allow_html=True)
-
         st.markdown("---")
         
+        # ... (상세 가이드 코드는 기존과 동일하게 유지)
+
+        
         # =========================================================
-        # 상세 건강 가이드 출력
+        # 상세 건강 가이드 출력 (영문 표기 제거 완료)
         # =========================================================
         
         if my_code == 'TE': # 태음인
-            st.header("📋 태음인 (Taeum-in) 상세 가이드")
+            st.header("📋 태음인 상세 가이드")
             
             st.markdown("""
             **1. 태음인의 특징**
@@ -651,8 +673,8 @@ def main():
             """, unsafe_allow_html=True)
             
             st.markdown("---")
-
-            st.subheader("🏥 생애주기 및 질환별 가이드")
+            # [수정됨] 
+            st.subheader("🏥 태음인 체질 증상 및 질환")
             st.markdown("""
             **특성:** 간대폐소(肝大肺小). 흡수 기능은 강하나 발산과 배출 기능이 약해 노폐물이 잘 쌓이고, 호흡기와 심혈관이 취약함.
 
@@ -697,7 +719,7 @@ def main():
             """, unsafe_allow_html=True)
 
         elif my_code == 'SY': # 소양인
-            st.header("📋 소양인 (Soyang-in) 상세 가이드")
+            st.header("📋 소양인 상세 가이드")
             
             st.markdown("""
             **1. 소양인의 특징**
@@ -737,8 +759,8 @@ def main():
             """, unsafe_allow_html=True)
             
             st.markdown("---")
-
-            st.subheader("🏥 생애주기 및 질환별 가이드")
+            # [수정됨] 
+            st.subheader("🏥 소양인 체질 증상 및 질환")
             st.markdown("""
             **특성:** 비대신소(脾大腎小). 소화력은 좋으나 신장/방광/자궁이 약함. 상체로 열이 잘 오르고(상열), 하체가 약하며 진액(수분)이 부족하기 쉬움.
 
@@ -782,7 +804,7 @@ def main():
             """, unsafe_allow_html=True)
 
         elif my_code == 'SE': # 소음인
-            st.header("📋 소음인 (Soum-in) 상세 가이드")
+            st.header("📋 소음인 상세 가이드")
             
             st.markdown("""
             **1. 소음인의 특징**
@@ -822,8 +844,8 @@ def main():
             """, unsafe_allow_html=True)
             
             st.markdown("---")
-
-            st.subheader("🏥 생애주기 및 질환별 가이드")
+            # [수정됨] 
+            st.subheader("🏥 소음인 체질 증상 및 질환")
             st.markdown("""
             **특성:** 신대비소(腎大脾小). 신장/생식기 기능은 좋으나 위장이 차고 소화력이 약함. 몸이 차고(냉증), 예민하며 체력이 약해지기 쉬움.
 
@@ -842,6 +864,7 @@ def main():
                     <td style="font-weight:bold;">한약재</td>
                     <td>
                         인삼(홍삼): 원기 회복, 소화기 강화, 면역력 증진 (소음인 최고 약재).<br>
+                        당귀·천궁: 혈액을 생성하고 순환시켜 생리통 및 빈혈 개선.<br>
                         당귀·천궁: 혈액을 생성하고 순환시켜 생리통 및 빈혈 개선.<br>
                         계피(육계)·생강(건강): 뱃속을 따뜻하게 하여 소화 불량 및 냉증 개선.<br>
                         쑥(애엽): 자궁을 따뜻하게 하여 부인과 질환 예방.
@@ -868,7 +891,7 @@ def main():
             """, unsafe_allow_html=True)
 
         elif my_code == 'TY': # 태양인
-            st.header("📋 태양인 (Taeyang-in) 상세 가이드")
+            st.header("📋 태양인 상세 가이드")
             
             st.markdown("""
             **1. 태양인의 특징**
@@ -907,8 +930,8 @@ def main():
             """, unsafe_allow_html=True)
             
             st.markdown("---")
-
-            st.subheader("🏥 생애주기 및 질환별 가이드")
+            # [수정됨] 
+            st.subheader("🏥 태양인 체질 증상 및 질환")
             st.markdown("""
             **특성:** 폐대간소(肺大肝小). 폐 기능은 강하나 간 기능이 매우 약함. 기운이 위로 솟구쳐 하체가 약해지기 쉽고 구토 증상이 잦을 수 있음. (가장 드문 체질)
 
