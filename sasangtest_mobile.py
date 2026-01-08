@@ -22,7 +22,7 @@ RECEIVER_EMAIL = "ds1lih@naver.com"
 # ==========================================
 # 1. 페이지 설정 및 스타일
 # ==========================================
-st.set_page_config(page_title="디스코 한의원 체질 설문", layout="centered")
+st.set_page_config(page_title="사상체질 자가진단", layout="centered")
 
 st.markdown("""
     <style>
@@ -392,8 +392,8 @@ def main():
     # STEP 0: 기본 정보 입력
     # ----------------------------------
     if current_step == 0:
-        st.markdown("<h1 style='text-align: center;'>디스코 한의원 체질 설문</h1>", unsafe_allow_html=True)
-        st.info("이 프로그램은 사상체질병증 한의표준임상진료지침을 바탕으로 제작했습니다. 모든 질문에 솔직하게 답변해 주세요.")
+        st.markdown("<h1 style='text-align: center;'>사상체질 자가진단</h1>", unsafe_allow_html=True)
+        st.info("이 프로그램은 디스코한의원에서 사상체질병증 한의표준임상진료지침을 바탕으로 제작했습니다. 모든 질문에 솔직하게 답변해 주세요.")
         
         with st.form("info_form"):
             name = st.text_input("이름 (필수)", placeholder="홍길동")
