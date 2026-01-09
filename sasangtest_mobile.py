@@ -1309,7 +1309,7 @@ def main():
             }
         </style>
         <button class="custom-btn" onclick="sharePage()">
-            🔗 지인에게 공유하기
+            🔗 지인과 공유하기
         </button>
         """
         
