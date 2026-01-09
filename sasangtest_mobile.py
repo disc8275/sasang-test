@@ -148,8 +148,10 @@ st.markdown("""
         button, 
         .stButton, 
         div[data-testid="stHorizontalBlock"], 
-        .stProgress,
-        iframe {
+        .stProgress, 
+        iframe,
+        textarea, 
+        .stTextArea {
             display: none !important;
             height: 0 !important;
             width: 0 !important;
@@ -711,10 +713,11 @@ def main():
                     scores_str = ", ".join([f"{TYPE_MAP[k]}: {v:.1f}점" for k, v in avg_scores.items()])
                     info = st.session_state['user_info']
 
-                    # 1. 관리자에게 보내는 메일 (처방 포함 전체 내용)
+                    # 1. 관리자에게 보내는 메일 (처방 포함 전체 내용 + 사용자 이메일 정보 포함)
                     admin_body = f"""
 [관리자 알림] 사용자 진단 결과
 이름: {info['name']} ({info['birth']})
+이메일: {info.get('email', '미입력')}
 키/몸무게: {info.get('height','')}cm / {info.get('weight','')}kg
 체질: {TYPE_MAP.get(my_type_code)}
 점수: {scores_str}
@@ -795,9 +798,9 @@ def main():
         else:
             st.title(f"🎉 당신은 [{TYPE_MAP[my_code]}] 입니다!")
 
-        # [요청사항 적용 1] 닥터 디스코의 한마디 (결과 상단 배치)
+        # [요청사항 적용 1] 닥터 제마의 한마디 (결과 상단 배치)
         st.info("""
-        💡 **닥터 디스코의 한마디**
+        💡 **닥터 제마의 한마디**
         
         이 결과는 건강 관리를 돕는 가벼운 길잡이로만 활용해 주시고, 정확한 체질 감별과 건강 상담은 전문 지식을 갖춘 한의사와의 따뜻한 진료를 통해 확인해 보세요.
         """)
@@ -1257,6 +1260,29 @@ def main():
              """)
 
         st.markdown("---")
+
+        # [추가 요청] 추가 문의 사항 입력 필드
+        st.markdown("##### ❓ 궁금한 점이 있으신가요?")
+        feedback = st.text_area("본인의 체질에 대해 더 궁금한 점이 있다면 적어주세요. 적극적으로 결과지에 반영하겠습니다. (선택)", height=80, key="final_feedback")
+
+        if st.button("📨 문의 내용 보내기"):
+            if feedback:
+                # 관리자에게 메일 발송
+                f_subject = f"[추가문의] {st.session_state['user_info']['name']}님 ({st.session_state['user_info']['birth']})"
+                f_body = f"""
+                [추가 문의 사항]
+                작성자: {st.session_state['user_info']['name']}
+                연락처(이메일): {st.session_state['user_info'].get('email', '미입력')}
+
+                문의 내용:
+                {feedback}
+                """
+                send_email_logic(RECEIVER_EMAIL, f_subject, f_body)
+                st.success("소중한 의견이 원장님께 전달되었습니다!")
+            else:
+                st.toast("내용을 입력해주세요.")
+
+        st.write("") 
         
         # [수정] 공유하기 및 인쇄 버튼 배치
         share_btn_code = """
