@@ -19,6 +19,7 @@ except:
     SENDER_PASSWORD = "password"
 
 RECEIVER_EMAIL = "ds1lih@naver.com" 
+
 # ==========================================
 # 1. 페이지 설정 및 스타일
 # ==========================================
@@ -88,9 +89,7 @@ st.markdown("""
         }
     }
 
-    /* ============================================================ */
-    /* [인쇄 전용 스타일]                                            */
-    /* ============================================================ */
+    /* [인쇄 전용 스타일] */
     @media print {
         * { 
             color: black !important; 
@@ -111,7 +110,7 @@ st.markdown("""
 
         .page-break { 
             page-break-before: always !important; 
-            display: block !important;
+            display: block !important; 
             height: 1px;
         }
 
@@ -258,38 +257,11 @@ if 'final_result' not in st.session_state:
 # ==========================================
 # 로직 함수 (이메일 및 추천)
 # ==========================================
-def send_email_result(info, constitution, scores, recommendation, answers_summary):
+def send_email_logic(target_email, subject, body):
     try:
-        subject = f"[사상체질진단 결과] {info['name']}님 ({info['birth']})"
-        scores_str = ", ".join([f"{TYPE_MAP[k]}: {v:.1f}점" for k, v in scores.items()])
-
-        body = f"""
-[사용자 기본 정보]
-- 이름: {info['name']}
-- 생년월일: {info['birth']}
-- 키/몸무게: {info.get('height','')}cm / {info.get('weight','')}kg
-- 진단 일시: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-[건강 상세 정보]
-- 약: {info.get('meds','')}
-- 병력: {info.get('history','')}
-- 코멘트: {info.get('comment','')}
-
-[진단 결과]
-- 체질: {TYPE_MAP.get(constitution, '알수없음')}
-- 점수: {scores_str}
-
-[추천 처방 및 병증]
-- 병증: {recommendation['condition']}
-- 처방: {recommendation['prescription']}
-- 설명: {recommendation['desc']}
-
-[설문 응답 상세]
-{answers_summary}
-        """
         msg = MIMEMultipart()
         msg['From'] = SENDER_EMAIL
-        msg['To'] = RECEIVER_EMAIL
+        msg['To'] = target_email
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain'))
 
@@ -300,8 +272,187 @@ def send_email_result(info, constitution, scores, recommendation, answers_summar
         server.quit()
         return True
     except Exception as e:
-        print(f"Email Fail: {e}")
+        print(f"Email Fail to {target_email}: {e}")
         return False
+
+# 사용자에게 보낼 전체 결과 텍스트 생성 (빠짐없이 포함)
+def get_full_guide_text(code):
+    text = ""
+    if code == 'TY':
+        text += "📋 태양인 상세 가이드\n\n"
+        text += "1. 태양인의 특징\n"
+        text += "에너지를 축적하는 기능은 약하고, 발산/소모시키는 기능은 강합니다.\n"
+        text += "머리와 목덜미가 발달한 반면, 허리나 하체가 빈약한 편입니다.\n\n"
+        text += "🚨 건강이 안 좋아지면 나타나는 증상\n"
+        text += "신체: 쉽게 몸살이 나고, 하체가 쉽게 피로하여 오래 걷기 힘듭니다.\n"
+        text += "배설: 소변 양과 횟수가 줄거나, 대변이 염소똥처럼 굳어집니다.\n"
+        text += "입/소화: 입 안에 맑은 침이나 거품이 고이고, 구역질을 합니다.\n"
+        text += "정서: 매사에 조급해지고 화가 잘 납니다.\n\n"
+        text += "💡 평소 생활 실천 사항\n"
+        text += "식사: 매운 자극성 음식, 고지방 음식을 피하고 담백한 음식/해물/채소가 좋습니다.\n"
+        text += "운동: 과격한 운동은 피하고, 허리/하체 근력 강화 운동을 하세요.\n"
+        text += "마음: 조급해하지 말고 여유를 가지며, 원만한 인간관계를 유지하세요.\n\n"
+        text += "🍽️ 식품군별 권장 음식 상세\n"
+        text += "- 곡류군: 메밀(국수, 묵, 밥) / (보리, 녹두, 팥)\n"
+        text += "- 저지방 어육류: 굴, 새우, 게, 오징어, 문어, 전복, 조개, 해삼, 홍합 / (흰살생선)\n"
+        text += "- 중지방 어육류: (사용 가능) 고등어, 꽁치, 장어\n"
+        text += "- 고지방 어육류: (해당 없음 / 육류는 피하는 것이 좋음)\n"
+        text += "- 채소군: 상추, 깻잎, 배추, 오이, 가지, 시금치, 우엉, 숙주나물, 죽순\n"
+        text += "- 지방군/우유/과일: 참깨 / 포도, 머루, 다래, 감, 키위, 파인애플, 오렌지\n\n"
+        text += "🏥 태양인 체질 증상 및 질환\n"
+        text += "특성: 폐대간소(肺大肝小). 폐 기능은 강하나 간 기능이 매우 약함. 기운이 위로 솟구쳐 하체가 약해지기 쉽고 구토 증상이 잦을 수 있음. (가장 드문 체질)\n"
+        text += "- 노화 (근골격): 하체 무력감, 다리에 힘이 풀림, 삼킴 장애(열격), 면역계 질환, 마비 질환\n"
+        text += "- 수험생/청소년: 독창적이나 화를 참지 못함.\n"
+        text += "- 여성: 원인 불명의 불임, 심한 입덧.\n"
+        text += "- 일반 (간/피부): 약물 과민 반응(간 해독력 저하), 아토피 등 피부 질환.\n\n"
+        text += "🥗 추천 약재·음식·영양제\n"
+        text += "- 한약재: 오가피(근골격을 튼튼하게 하여 하체 무력감 보강), 모과(근육의 경직을 풀고 위장 편안하게 함), 다래(미후도, 위로 치솟는 기운을 내리고 열을 식힘)\n"
+        text += "- 음식: 해산물(문어, 조개, 게 - 타우린이 간 기능을 돕고 피로 회복), 메밀(몸의 열을 내리고 소화를 도움), 포도/키위(진액을 생성하고 피로를 풂)\n"
+        text += "- 영양제: 클로렐라/스피루리나(엽록소가 풍부한 해조류로 간 해독 및 항산화), MSM(식이유황, 해독 작용 및 관절/연골 건강 보조), 유산균(육식보다는 채식 위주의 식단과 함께 장 건강 관리)\n\n"
+        text += "🌟 태양인으로 추정되는 유명인\n"
+        text += "※ 알림: 이 내용은 인물의 대중적 이미지와 캐릭터를 바탕으로 한 재미 위주의 가상 분류입니다. 실제 의학적 체질 진단과는 다를 수 있으니 가볍게 즐겨주세요!\n\n"
+        text += "\"카리스마 넘치는 직관의 리더\"\n"
+        text += "태양인은 만 명 중 한두 명 있을 정도로 매우 드문 체질입니다. 강한 추진력과 카리스마, 남다른 직관력을 가졌으며, 남들이 범접하기 힘든 독보적인 아우라를 뿜어냅니다.\n\n"
+        text += "- 배우: 차승원, 김윤석 (강렬한 인상과 화면을 장악하는 남성미)\n"
+        text += "- 가수: 나훈아, 임재범 (폭발적인 성량과 무대 전체를 지배하는 쇼맨십)\n"
+        text += "- K-pop 아이돌: 지드래곤(GD), 카리나(aespa), 전소연((G)I-DLE) (비현실적인 비주얼과 천재적인 프로듀싱 능력, 리더십)\n"
+        text += "- 삼국지 장군: 관우 (천하를 호령하는 위엄과 굽히지 않는 충절, 긴 수염을 휘날리는 압도적 풍채)\n"
+        text += "- 우리나라 위인: 이제마 (사상의학의 창시자), 박정희 (강력한 추진력)\n"
+        text += "- 역사 속 위인: 나폴레옹 (세상을 바꾸려는 강력한 영웅 심리)\n"
+        text += "- 동물: 사자, 용, 독수리 (백수의 왕, 하늘의 제왕처럼 비범함)\n"
+
+    elif code == 'SY':
+        text += "📋 소양인 상세 가이드\n\n"
+        text += "1. 소양인의 특징\n"
+        text += "몸에 열이 많습니다.\n"
+        text += "신경이 예민하고, 피부, 장, 방광 등이 과민한 편입니다.\n\n"
+        text += "🚨 건강이 안 좋아지면 나타나는 증상\n"
+        text += "수면/정서: 잠들기 어렵고 자주 깨며, 마음이 조급하고 불안합니다.\n"
+        text += "배설: 소변을 자주 보거나 색이 진하며, 변비나 설사가 잦습니다.\n"
+        text += "신체: 얼굴이나 피부 트러블이 잦고, 입이 마르며 갈증이 납니다.\n"
+        text += "소화: 가슴이 답답하고 속이 쓰리거나 구역질을 합니다.\n\n"
+        text += "💡 평소 생활 실천 사항\n"
+        text += "수면/마음: 충분한 수면을 취하고, 매사에 여유를 가지려 노력하세요.\n"
+        text += "식사: 천천히 식사하며, 서늘한 성질의 음식/해물/채소가 좋습니다.\n"
+        text += "피할 것: 맵고 짠 음식, 성질이 더운 음식을 피하세요.\n"
+        text += "운동: 하체를 강화시켜 주는 운동(등산, 자전거 등)이 좋습니다.\n\n"
+        text += "🍽️ 식품군별 권장 음식 상세\n"
+        text += "- 곡류군: 보리, 팥, 녹두 / (메밀, 고구마, 토란)\n"
+        text += "- 저지방 어육류: 돼지고기(살코기), 오리고기, 복어, 굴, 새우, 오징어, 낙지, 조개, 게, 해삼\n"
+        text += "- 중지방 어육류: 돼지고기(안심), 계란 / (두부, 고등어, 꽁치)\n"
+        text += "- 고지방 어육류: 삼겹살, 족발, 돼지갈비, 베이컨\n"
+        text += "- 채소군: 오이, 가지, 배추, 상추, 우엉, 숙주나물, 죽순\n"
+        text += "- 지방군/우유/과일: 참깨, 참기름, 우유 / 딸기, 수박, 바나나, 참외, 메론, 키위\n\n"
+        text += "🏥 소양인 체질 증상 및 질환\n"
+        text += "특성: 비대신소(脾大腎小). 소화력은 좋으나 신장/방광/자궁이 약함. 상체로 열이 잘 오르고(상열), 하체가 약하며 진액(수분)이 부족하기 쉬움.\n"
+        text += "- 노화 (비뇨/골격): 전립선 비대, 요실금, 골다공증, 안구건조, 뇌출혈, 심근경색\n"
+        text += "- 수험생/청소년: 성조숙증 주의, ADHD 성향(산만함), 열로 인한 두통.\n"
+        text += "- 여성: 질 건조증, 방광염, 상열감 심한 갱년기.\n"
+        text += "- 일반 (위장/탈모): 스트레스성 위염(속쓰림), 정수리 열로 인한 탈모.\n\n"
+        text += "🥗 추천 약재·음식·영양제\n"
+        text += "- 한약재: 숙지황(신장 기운 보강, 진액 보충), 구기자·산수유(하체 강화, 정력 증진, 눈 피로 해소), 복령(소변을 잘 나오게 하고 마음을 안정시킴)\n"
+        text += "- 음식: 돼지고기/오리고기(찬 성질로 몸의 화기를 내리고 보양), 수박/참외/오이(천연 이뇨작용 및 체내 열 배출), 굴/전복(바다의 음기를 머금어 신장 보강 및 피부 미용)\n"
+        text += "- 영양제: 알로에(위장의 열을 내리고 배변 활동 보조), 마그네슘(신경 과흥분 조절 및 근육 이완), 콜라겐(진액 부족으로 인한 피부 노화 및 관절 건조 예방)\n\n"
+        text += "🌟 소양인으로 추정되는 유명인\n"
+        text += "※ 알림: 이 내용은 인물의 대중적 이미지와 캐릭터를 바탕으로 한 재미 위주의 가상 분류입니다. 실제 의학적 체질 진단과는 다를 수 있으니 가볍게 즐겨주세요!\n\n"
+        text += "\"재치 만점, 날렵한 분위기 메이커\"\n"
+        text += "성격이 급하지만 뒤끝이 없고, 솔직담백하며 재치와 유머가 넘칩니다. 상체가 발달하고 하체가 약한 편이며, 톡톡 튀는 센스로 주변을 즐겁게 만듭니다.\n\n"
+        text += "- 배우: 김혜수, 전지현, 이병헌 (시원시원한 이목구비와 당당하고 솔직한 매력)\n"
+        text += "- 가수: 이선희, 윤수일, 싸이(PSY) (작은 체구에서 나오는 폭발적 고음과 열정적인 에너지)\n"
+        text += "- K-pop 아이돌: 백현(EXO), 안유진(IVE), 하니(NewJeans) (예능감 넘치는 씩씩한 에너지와 엉뚱한 장난기)\n"
+        text += "- 삼국지 장군: 장비 (행동이 앞서는 불같은 성격, 호탕한 매력의 소유자)\n"
+        text += "- 우리나라 위인: 다산 정약용 (호기심이 많고 다방면에 능통함)\n"
+        text += "- 역사 속 위인: 스티브 잡스 (창의적이고 혁신적이나 성격이 급함)\n"
+        text += "- 동물: 원숭이, 돌고래 (재주가 많고 날렵하며 사교적임)\n"
+
+    elif code == 'TE':
+        text += "📋 태음인 상세 가이드\n\n"
+        text += "1. 태음인의 특징\n"
+        text += "섭취한 에너지를 소모시키고 배설시키는 것이 취약합니다.\n"
+        text += "체구가 큰 편이고, 식욕과 위장기능이 좋아 비만해지기 쉽습니다.\n\n"
+        text += "🚨 건강이 안 좋아지면 나타나는 증상\n"
+        text += "체중/식욕: 살이 찌고, 배가 부른데도 자꾸 먹게 됩니다.\n"
+        text += "배설: 대변이 굳거나 설사가 잦아지는 등 양상이 달라집니다.\n"
+        text += "신체: 땀이 잘 나지 않거나, 상체로만 진땀이 많이 납니다. 아침에 얼굴/손발이 붓습니다.\n"
+        text += "피부: 얼굴이 붉어지고 열감이 많으며, 피부 트러블이 잦습니다.\n\n"
+        text += "💡 평소 생활 실천 사항\n"
+        text += "관리: 변비와 체중 증가를 항상 경계해야 합니다.\n"
+        text += "식사: 과식/폭식/야식을 피하고, 천천히 먹습니다. 식후 바로 눕지 마세요.\n"
+        text += "운동: 땀을 흘릴 정도의 유산소 운동(열량 소모 많은 운동)이 좋습니다.\n\n"
+        text += "🍽️ 식품군별 권장 음식 상세\n"
+        text += "- 곡류군: 현미, 율무, 콩, 고구마, 옥수수, 토란, 밤, 마, 잣, 호두, 땅콩\n"
+        text += "- 저지방 어육류: 소고기(사태, 홍두깨), 대구, 조기, 명태, 민어, 오징어\n"
+        text += "- 중지방 어육류: 소고기(등심, 안심), 고등어, 꽁치, 갈치, 두부, 콩비지\n"
+        text += "- 고지방 어육류: 소갈비, 뱀장어, 유부, 치즈\n"
+        text += "- 채소군: 무, 호박, 콩나물, 고사리, 버섯, 김, 미역, 다시마, 도라지, 연근, 당근\n"
+        text += "- 지방군/우유/과일: 들기름, 올리브유, 우유, 두유 / 배, 매실, 자두, 살구\n\n"
+        text += "🏥 태음인 체질 증상 및 질환\n"
+        text += "특성: 간대폐소(肝大肺小). 흡수 기능은 강하나 발산과 배출 기능이 약해 노폐물이 잘 쌓이고, 호흡기와 심혈관이 취약함.\n"
+        text += "- 노화 (대사/순환): 혈액순환 장애, 고혈압, 당뇨, 고지혈증, 협심증, 중풍, 치매, 비만, 간암, 대장암\n"
+        text += "- 수험생/청소년: 지구력은 좋으나 비만하기 쉽고, 호흡기 약화로 인한 집중력 저하.\n"
+        text += "- 여성: 다낭성 난소 증후군, 비만형 생리불순.\n"
+        text += "- 일반 (간/장): 지방간, 변비, 과민성 대장(설사보다는 가스 참).\n\n"
+        text += "🥗 추천 약재·음식·영양제\n"
+        text += "- 한약재: 녹용(기혈 보강, 소아 성장 및 노인 항노화), 맥문동·길경(폐/기관지 윤택, 가래 배출), 갈근(목덜미 긴장 해소), 의이인(율무, 습담 제거 및 다이어트)\n"
+        text += "- 음식: 소고기(양질의 단백질), 무/배/연근(폐 기운 돕고 소화 촉진), 호두/잣(뇌 기능 활성화 및 변비 예방)\n"
+        text += "- 영양제: 오메가-3(혈행 개선, 고지혈증 예방), 비타민 A/D(호흡기 점막 보호 및 면역력), 밀크씨슬(간의 해독 작용 보조)\n\n"
+        text += "🌟 태음인으로 추정되는 유명인\n"
+        text += "※ 알림: 이 내용은 인물의 대중적 이미지와 캐릭터를 바탕으로 한 재미 위주의 가상 분류입니다. 실제 의학적 체질 진단과는 다를 수 있으니 가볍게 즐겨주세요!\n\n"
+        text += "\"듬직하고 끈기 있는 평화주의자\"\n"
+        text += "한국인에게 가장 많은 체질입니다. 골격이 굵고 듬직하며, 인내심과 끈기가 강합니다. 변화보다는 안정을 추구하며, 겉은 유해 보이나 속은 단단한 외유내강형입니다.\n\n"
+        text += "- 배우: 마동석, 송강호, 최민식 (중후하고 묵직한 연기, 푸근한 인상 뒤의 파워)\n"
+        text += "- 가수: 송창식, 양희은, 성시경 (뱃속 깊은 곳에서 울리는 웅장하고 편안한 성량)\n"
+        text += "- K-pop 아이돌: 창빈(Stray Kids), 휴닝카이(TXT), 신동 (탄탄한 피지컬과 팀의 중심을 잡는 무게감)\n"
+        text += "- 삼국지 장군: 유비 (넓은 덕으로 사람을 품는 인내심, 묵묵히 때를 기다리는 신중함)\n"
+        text += "- 우리나라 위인: 세종대왕 (고기를 좋아하고 앉아서 연구하기를 즐김), 김구\n"
+        text += "- 역사 속 위인: 윈스턴 처칠 (뚝심 있는 리더십, 풍채)\n"
+        text += "- 동물: 곰, 황소, 코끼리 (우직하고 힘이 세며 지구력이 좋음)\n"
+
+    elif code == 'SE':
+        text += "📋 소음인 상세 가이드\n\n"
+        text += "1. 소음인의 특징\n"
+        text += "몸이 찬 편입니다.\n"
+        text += "전반적인 체력이 약한 편입니다.\n"
+        text += "소화기의 기능이 약해지기 쉽습니다.\n\n"
+        text += "🚨 건강이 안 좋아지면 나타나는 증상\n"
+        text += "전신: 무리를 하지 않았는데도 피로감이 지속되고, 아침에 일어나기 힘듭니다.\n"
+        text += "소화: 식욕이 떨어지고 소화가 잘 안 되며, 배에 가스가 찹니다.\n"
+        text += "배설: 설사를 자주 하거나, 대변이 가늘면서 시원하지 않습니다.\n"
+        text += "기타: 손발과 배가 차고, 특별한 이유 없이 마음이 늘 불안합니다.\n\n"
+        text += "💡 평소 생활 실천 사항\n"
+        text += "보온: 항상 몸을 따뜻하게 합니다.\n"
+        text += "휴식: 과로를 피하고 적절한 휴식이 필요합니다.\n"
+        text += "식사: 규칙적인 식사가 중요하며, 따뜻한 성질의 음식이나 약간의 자극성 있는 조미료가 좋습니다.\n\n"
+        text += "🍽️ 식품군별 권장 음식 상세\n"
+        text += "- 곡류군: 백미, 차조, 찹쌀, 감자, 옥수수 / (떡, 누룽지)\n"
+        text += "- 저지방 어육류: 닭고기(껍질/기름 제거), 명태, 조기, 도미, 대구, 민어, 농어, 가자미, 멸치\n"
+        text += "- 중지방 어육류: 삼치, 갈치, 장어, 민어, 도루묵\n"
+        text += "- 고지방 어육류: 닭고기(껍질 포함), 개고기, 뱀장어\n"
+        text += "- 채소군: 깻잎, 냉이, 시금치, 양배추, 브로콜리, 마늘, 파, 고추, 양파, 부추, 쑥\n"
+        text += "- 지방군/우유/과일: 들깨, 참기름, 산양유 / 사과, 귤, 토마토, 복숭아, 대추, 유자\n\n"
+        text += "🏥 소음인 체질 증상 및 질환\n"
+        text += "특성: 신대비소(腎大脾小). 신장/생식기 기능은 좋으나 위장이 차고 소화력이 약함. 몸이 차고(냉증), 예민하며 체력이 약해지기 쉬움.\n"
+        text += "- 노화 (기력/소화): 소화 기능 저하, 근감소증, 수족냉증, 기력 감퇴, 위암\n"
+        text += "- 수험생/청소년: 체력 부족, 시험 불안, 예민성 복통.\n"
+        text += "- 여성: 심한 생리통(냉증), 빈혈, 수족냉증.\n"
+        text += "- 일반 (면역/장): 잦은 감기, 만성 설사, 멀미.\n\n"
+        text += "🥗 추천 약재·음식·영양제\n"
+        text += "- 한약재: 인삼/홍삼(원기 회복, 소화기 강화, 면역력), 당귀·천궁(혈액 생성 및 순환, 생리통/빈혈), 계피/생강(뱃속을 따뜻하게 함), 쑥(자궁을 따뜻하게 함)\n"
+        text += "- 음식: 닭고기(따뜻한 성질의 단백질), 마늘/고추/부추(신진대사 촉진 및 체온 유지), 꿀/대추(위장 편안 및 신경 안정)\n"
+        text += "- 영양제: 비타민 B군(에너지 대사, 만성 피로), 철분/엽산(빈혈 예방), 프로폴리스(따뜻한 성질의 천연 항생제, 면역력)\n\n"
+        text += "🌟 소음인으로 추정되는 유명인\n"
+        text += "※ 알림: 이 내용은 인물의 대중적 이미지와 캐릭터를 바탕으로 한 재미 위주의 가상 분류입니다. 실제 의학적 체질 진단과는 다를 수 있으니 가볍게 즐겨주세요!\n\n"
+        text += "\"섬세하고 완벽을 추구하는 전략가\"\n"
+        text += "이목구비가 오밀조밀하고 단정합니다. 꼼꼼하고 내성적이며 완벽주의 성향이 있습니다. 체력이 약해 쉽게 피로를 느끼지만, 논리적이고 세심한 감수성을 가졌습니다.\n\n"
+        text += "- 배우: 박보검, 정유미, 한석규 (부드럽고 지적인 이미지, 섬세한 감정 연기)\n"
+        text += "- 가수: 심수봉, 김광석, 아이유(IU) (마음을 파고드는 애절한 감성과 철저한 자기관리)\n"
+        text += "- K-pop 아이돌: 장원영(IVE), 민지(NewJeans), 설윤(NMIXX) (청순하고 고전적인 미인상, 차분하고 지적인 이미지)\n"
+        text += "- 삼국지 장군: 제갈량 (뛰어난 지략, 돌다리도 두들겨 보는 신중함과 꼼꼼함)\n"
+        text += "- 우리나라 위인: 이순신 장군 (철저한 기록과 신중한 전략), 퇴계 이황\n"
+        text += "- 역사 속 위인: 링컨 (사색적이고 신중하며 마른 체형)\n"
+        text += "- 동물: 사슴, 고양이 (예민하고 깔끔하며 독립적임)\n"
+    
+    return text
 
 def get_recommendation(constitution, symptoms):
     pain = symptoms.get('pain')
@@ -347,7 +498,7 @@ def go_shortcut(selected_type):
     if 'name' not in st.session_state['user_info']:
         st.session_state['user_info'] = {
             'name': '방문자', 'birth': '-', 
-            'height': '-', 'weight': '-', 
+            'height': '-', 'weight': '-', 'email': '',
             'meds': '-', 'history': '-', 'comment': '체질 바로보기 선택'
         }
     
@@ -398,6 +549,10 @@ def main():
         with st.form("info_form"):
             name = st.text_input("이름 (필수)", placeholder="홍길동")
             birth = st.text_input("생년월일 (필수)", placeholder="예: 1980.01.01")
+            
+            # [수정 1] 이메일 입력란 추가
+            email = st.text_input("이메일 (선택)", placeholder="결과지를 이메일로 받으시려면 입력해주세요.")
+            
             col1, col2 = st.columns(2)
             with col1: height = st.text_input("키 (cm)", placeholder="175")
             with col2: weight = st.text_input("몸무게 (kg)", placeholder="70")
@@ -411,7 +566,7 @@ def main():
                     st.error("이름과 생년월일은 필수입니다.")
                 else:
                     st.session_state['user_info'] = {
-                        'name': name, 'birth': birth, 'height': height,
+                        'name': name, 'birth': birth, 'email': email, 'height': height,
                         'weight': weight, 'meds': meds, 'history': history, 'comment': comment
                     }
                     go_next()
@@ -553,9 +708,59 @@ def main():
                     answers_summary += f"\n[증상] Sweat: {st.session_state['symptom_answers']['sweat']}"
                     answers_summary += f"\n[증상] Stool: {st.session_state['symptom_answers']['stool']}"
                     
-                    send_email_result(
-                        st.session_state['user_info'], my_type_code, avg_scores, recommendation, answers_summary
-                    )
+                    scores_str = ", ".join([f"{TYPE_MAP[k]}: {v:.1f}점" for k, v in avg_scores.items()])
+                    info = st.session_state['user_info']
+
+                    # 1. 관리자에게 보내는 메일 (처방 포함 전체 내용)
+                    admin_body = f"""
+[관리자 알림] 사용자 진단 결과
+이름: {info['name']} ({info['birth']})
+키/몸무게: {info.get('height','')}cm / {info.get('weight','')}kg
+체질: {TYPE_MAP.get(my_type_code)}
+점수: {scores_str}
+
+[건강 정보]
+약: {info.get('meds','')}
+병력: {info.get('history','')}
+코멘트: {info.get('comment','')}
+
+[추천처방]
+병증: {recommendation['condition']}
+처방: {recommendation['prescription']}
+설명: {recommendation['desc']}
+
+[설문응답 로그]
+{answers_summary}
+                    """
+                    send_email_logic(RECEIVER_EMAIL, f"[관리자] {info['name']}님 결과", admin_body)
+
+                    # 2. 사용자에게 보내는 메일 (추천처방 제외, 상세 가이드 포함)
+                    user_email = info.get('email')
+                    if user_email:
+                        full_guide_text = get_full_guide_text(my_type_code)
+                        
+                        user_body = f"""
+당신은 [{TYPE_MAP.get(my_type_code)}] 입니다!
+
+💡 닥터 디스코의 한마디
+이 결과는 건강 관리를 돕는 가벼운 길잡이로만 활용해 주시고, 정확한 체질 감별과 건강 상담은 전문 지식을 갖춘 한의사와의 따뜻한 진료를 통해 확인해 보세요.
+
+📊 체질별 분석 점수
+{scores_str}
+
+---------------------------------------------------
+{full_guide_text}
+---------------------------------------------------
+
+[🔁 다시 검사하기 & 📢 공유하기]
+나의 체질을 확인하셨나요?
+가족이나 친구의 체질도 궁금하다면 아래 링크를 공유해주세요!
+
+👉 http://www.mysasang.com/
+
+※ 본 결과는 자가진단을 바탕으로 한 참고용이며, 정확한 의학적 진단과 처방은 한의원에 내원하여 상담받으시길 바랍니다.
+                        """
+                        send_email_logic(user_email, f"[{info['name']}님] 디스코 한의원 사상체질 진단 결과", user_body)
                 
                 st.session_state['final_result'] = {
                     'code': my_type_code,
@@ -575,6 +780,10 @@ def main():
 
         st.balloons()
         
+        # [안내 문구 추가]
+        if st.session_state['user_info'].get('email'):
+            st.success(f"📧 입력하신 이메일({st.session_state['user_info']['email']})로 상세 결과 가이드를 보내드렸습니다.")
+
         # 제목 표시
         max_score = max(scores.values())
         tied_keys = [k for k, v in scores.items() if v == max_score]
@@ -1049,12 +1258,96 @@ def main():
 
         st.markdown("---")
         
-        # 인쇄 버튼
+        # [수정] 공유하기 및 인쇄 버튼 배치
+        share_btn_code = """
+        <script>
+        async function sharePage() {
+            const shareData = {
+                title: '사상체질 자가진단',
+                text: '나의 체질을 확인해보세요! 디스코 한의원 사상체질 자가진단',
+                url: 'http://www.mysasang.com/'
+            };
+            if (navigator.share) {
+                try {
+                    await navigator.share(shareData);
+                } catch (err) {
+                    console.log('Share canceled');
+                }
+            } else {
+                // Fallback: Copy to clipboard
+                const el = document.createElement('textarea');
+                el.value = 'http://www.mysasang.com/';
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                alert('주소가 복사되었습니다! 메신저나 SNS에 붙여넣기(Ctrl+V) 하세요.');
+            }
+        }
+        </script>
+        <style>
+            .custom-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background-color: #ffffff;
+                color: #31333F;
+                border-radius: 0.5rem;
+                border: 1px solid rgba(49, 51, 63, 0.2);
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                width: 100%;
+                height: 50px;
+                font-family: "Source Sans Pro", sans-serif;
+                margin-bottom: 10px;
+            }
+            .custom-btn:hover {
+                border-color: #ff4b4b;
+                color: #ff4b4b;
+                background-color: #fff;
+            }
+        </style>
+        <button class="custom-btn" onclick="sharePage()">
+            🔗 지인에게 공유하기
+        </button>
+        """
+        
         print_btn_code = """
         <script>function printPage() { window.parent.print(); }</script>
-        <button onclick="printPage()" style="width:100%; padding:10px; background:white; border:1px solid #ddd; border-radius:5px; color:black; cursor:pointer;">🖨️ 결과 저장/인쇄</button>
+        <style>
+            .custom-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background-color: #ffffff;
+                color: #31333F;
+                border-radius: 0.5rem;
+                border: 1px solid rgba(49, 51, 63, 0.2);
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                width: 100%;
+                height: 50px;
+                font-family: "Source Sans Pro", sans-serif;
+                margin-bottom: 10px;
+            }
+            .custom-btn:hover {
+                border-color: #ff4b4b;
+                color: #ff4b4b;
+                background-color: #fff;
+            }
+        </style>
+        <button class="custom-btn" onclick="printPage()">
+            🖨️ 결과 저장/인쇄
+        </button>
         """
-        components.html(print_btn_code, height=50)
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            components.html(share_btn_code, height=60)
+        with c2:
+            components.html(print_btn_code, height=60)
         
         if st.button("🔄 처음부터 다시하기", use_container_width=True):
             st.session_state.clear()
