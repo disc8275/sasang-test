@@ -15,8 +15,8 @@ try:
     SENDER_PASSWORD = st.secrets["SENDER_PASSWORD"]
 except:
     # 로컬 테스트용 더미 값 (실제 배포시 secrets 설정 필수)
-    SENDER_EMAIL = "disc8275@gmail.com" 
-    SENDER_PASSWORD = "axrd kith cizs svzg" 
+    SENDER_EMAIL = "test@example.com"
+    SENDER_PASSWORD = "password"
 
 RECEIVER_EMAIL = "ds1lih@naver.com" # 관리자 이메일
 
@@ -111,34 +111,34 @@ st.markdown("""
         .page-break { 
             page-break-before: always !important; 
             display: block !important; 
-            height: 1px;
+            height: 1px; 
         }
 
         @page {
             margin: 0mm !important; 
-            size: auto;
+            size: auto; 
         }
 
         html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            height: auto !important;
-            min-height: 0 !important;
-            overflow: visible !important;
+            margin: 0 !important; 
+            padding: 0 !important; 
+            height: auto !important; 
+            min-height: 0 !important; 
+            overflow: visible !important; 
         }
         
         .stApp {
-            min-height: 0 !important;
-            height: auto !important;
-            overflow: visible !important;
-            background-color: white !important;
+            min-height: 0 !important; 
+            height: auto !important; 
+            overflow: visible !important; 
+            background-color: white !important; 
         }
 
         .block-container {
-            margin: 15mm 15mm 0 15mm !important;
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
-            width: auto !important;
+            margin: 15mm 15mm 0 15mm !important; 
+            padding-top: 0 !important; 
+            padding-bottom: 0 !important; 
+            width: auto !important; 
         }
 
         section[data-testid="stSidebar"], 
@@ -152,18 +152,18 @@ st.markdown("""
         iframe,
         textarea, 
         .stTextArea {
-            display: none !important;
-            height: 0 !important;
-            width: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            opacity: 0 !important;
-            visibility: hidden !important;
+            display: none !important; 
+            height: 0 !important; 
+            width: 0 !important; 
+            margin: 0 !important; 
+            padding: 0 !important; 
+            opacity: 0 !important; 
+            visibility: hidden !important; 
         }
         
         iframe[title="streamlit.components.v1.components.html"] {
-            display: none !important;
-            height: 0 !important;
+            display: none !important; 
+            height: 0 !important; 
         }
     }
     /* [추가] 체질 명칭 가로 배열 및 검정색 설정 */
@@ -761,9 +761,9 @@ def main():
 
 👉 http://www.mysasang.com/
 
-※ 본 결과는 참고용이며, 정확한 의학적 진단과 처방은 한의원에 내원하여 상담받으시길 바랍니다.
+※ 본 결과는 자가진단을 바탕으로 한 참고용이며, 정확한 의학적 진단과 처방은 한의원에 내원하여 상담받으시길 바랍니다.
                         """
-                        send_email_logic(user_email, f"[{info['name']}님] 디스코한의원 사상체질 진단 결과", user_body)
+                        send_email_logic(user_email, f"[{info['name']}님] 디스코 한의원 사상체질 진단 결과", user_body)
                 
                 st.session_state['final_result'] = {
                     'code': my_type_code,
@@ -796,7 +796,19 @@ def main():
             title_text = " 또는 ".join(tied_names)
             st.title(f"🎉 [{title_text}] 확률이 동일합니다!")
         else:
-            st.title(f"🎉 당신은 [{TYPE_MAP[my_code]}] 입니다!")
+            my_name = TYPE_MAP[my_code]
+            st.title(f"🎉 당신은 [{my_name}] 입니다!")
+            
+            # [추가된 로직] 2등과 점수 차이가 0.2 이하인 경우 알림 표시
+            sorted_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+            if len(sorted_scores) >= 2:
+                first_s = sorted_scores[0]
+                second_s = sorted_scores[1]
+                diff = first_s[1] - second_s[1]
+                
+                if 0 < diff <= 0.2:
+                    second_name = TYPE_MAP[second_s[0]]
+                    st.warning(f"📢 **알림:** [{second_name}] 점수와 차이가 **{diff:.1f}점**으로 매우 근소합니다.\n\n두 체질의 성향이 비슷하게 나타나거나, [{my_name}]일 확률이 조금 더 높습니다.")
 
         # [요청사항 적용 1] 닥터 제마의 한마디 (결과 상단 배치)
         st.info("""
@@ -1260,37 +1272,14 @@ def main():
              """)
 
         st.markdown("---")
-
-        # [추가 요청] 추가 문의 사항 입력 필드
-        st.markdown("##### ❓ 궁금한 점이 있으신가요?")
-        feedback = st.text_area("본인의 체질에 대해 더 궁금한 점이 있다면 적어주세요. 적극적으로 결과지에 반영하겠습니다. (선택)", height=80, key="final_feedback")
-
-        if st.button("📨 문의 내용 보내기"):
-            if feedback:
-                # 관리자에게 메일 발송
-                f_subject = f"[추가문의] {st.session_state['user_info']['name']}님 ({st.session_state['user_info']['birth']})"
-                f_body = f"""
-                [추가 문의 사항]
-                작성자: {st.session_state['user_info']['name']}
-                연락처(이메일): {st.session_state['user_info'].get('email', '미입력')}
-
-                문의 내용:
-                {feedback}
-                """
-                send_email_logic(RECEIVER_EMAIL, f_subject, f_body)
-                st.success("소중한 의견이 원장님께 전달되었습니다!")
-            else:
-                st.toast("내용을 입력해주세요.")
-
-        st.write("") 
         
         # [수정] 공유하기 및 인쇄 버튼 배치
         share_btn_code = """
         <script>
         async function sharePage() {
             const shareData = {
-                title: '디스코한의원 사상체질 진단',
-                text: '나의 체질을 확인해보세요! 디스코한의원 사상체질 진단',
+                title: '사상체질 자가진단',
+                text: '나의 체질을 확인해보세요! 디스코 한의원 사상체질 자가진단',
                 url: 'http://www.mysasang.com/'
             };
             if (navigator.share) {
