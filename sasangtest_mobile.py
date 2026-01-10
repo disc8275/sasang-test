@@ -15,15 +15,15 @@ try:
     SENDER_PASSWORD = st.secrets["SENDER_PASSWORD"]
 except:
     # 로컬 테스트용 더미 값 (실제 배포시 secrets 설정 필수)
-    SENDER_EMAIL = "test@example.com"
-    SENDER_PASSWORD = "password"
+    SENDER_EMAIL = "disc8275@gmail.com" 
+    SENDER_PASSWORD = "axrd kith cizs svzg" 
 
-RECEIVER_EMAIL = "ds1lih@naver.com" 
+RECEIVER_EMAIL = "ds1lih@naver.com" # 관리자 이메일
 
 # ==========================================
 # 1. 페이지 설정 및 스타일
 # ==========================================
-st.set_page_config(page_title="사상체질 자가진단", layout="centered")
+st.set_page_config(page_title="디스코한의원 사상체질 진단", layout="centered")
 
 st.markdown("""
     <style>
@@ -545,8 +545,8 @@ def main():
     # STEP 0: 기본 정보 입력
     # ----------------------------------
     if current_step == 0:
-        st.markdown("<h1 style='text-align: center;'>사상체질 자가진단</h1>", unsafe_allow_html=True)
-        st.info("본 프로그램은 나에게 꼭 맞는 건강 관리의 시작을 위해 사상 체질을 진단하는 프로그램입니다. 객관성과 정확도를 높이기 위해 전국 한의대 교수진이 집필한 사상체질병증 한의표준임상진료지침을 준수하여 40개 문항으로 제작되었습니다. 정확한 사상 체질 진단을 위해 각 질문을 꼼꼼하게 읽고 작성해주십시오.")
+        st.markdown("<h1 style='text-align: center;'>디스코한의원 사상체질 진단</h1>", unsafe_allow_html=True)
+        st.info("본 프로그램은 사상체질병증 한의표준임상진료지침을 준수하여 40개 문항으로 제작되었습니다. 꼼꼼하게 읽고 작성해주십시오.")
         
         with st.form("info_form"):
             name = st.text_input("이름 (필수)", placeholder="홍길동")
@@ -745,7 +745,7 @@ def main():
                         user_body = f"""
 당신은 [{TYPE_MAP.get(my_type_code)}] 입니다!
 
-💡 닥터 디스코의 한마디
+💡 닥터 제마의 한마디
 이 결과는 건강 관리를 돕는 가벼운 길잡이로만 활용해 주시고, 정확한 체질 감별과 건강 상담은 전문 지식을 갖춘 한의사와의 따뜻한 진료를 통해 확인해 보세요.
 
 📊 체질별 분석 점수
@@ -761,9 +761,9 @@ def main():
 
 👉 http://www.mysasang.com/
 
-※ 본 결과는 자가진단을 바탕으로 한 참고용이며, 정확한 의학적 진단과 처방은 한의원에 내원하여 상담받으시길 바랍니다.
+※ 본 결과는 참고용이며, 정확한 의학적 진단과 처방은 한의원에 내원하여 상담받으시길 바랍니다.
                         """
-                        send_email_logic(user_email, f"[{info['name']}님] 디스코 한의원 사상체질 진단 결과", user_body)
+                        send_email_logic(user_email, f"[{info['name']}님] 디스코한의원 사상체질 진단 결과", user_body)
                 
                 st.session_state['final_result'] = {
                     'code': my_type_code,
@@ -1289,8 +1289,8 @@ def main():
         <script>
         async function sharePage() {
             const shareData = {
-                title: '사상체질 자가진단',
-                text: '나의 체질을 확인해보세요! 디스코 한의원 사상체질 자가진단',
+                title: '디스코한의원 사상체질 진단',
+                text: '나의 체질을 확인해보세요! 디스코한의원 사상체질 진단',
                 url: 'http://www.mysasang.com/'
             };
             if (navigator.share) {
