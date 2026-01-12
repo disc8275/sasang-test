@@ -15,8 +15,8 @@ try:
     SENDER_PASSWORD = st.secrets["SENDER_PASSWORD"]
 except:
     # 로컬 테스트용 더미 값 (실제 배포시 secrets 설정 필수)
-    SENDER_EMAIL = "test@example.com"
-    SENDER_PASSWORD = "password"
+    SENDER_EMAIL = "disc8275@gmail.com" 
+    SENDER_PASSWORD = "axrd kith cizs svzg" 
 
 RECEIVER_EMAIL = "ds1lih@naver.com" # 관리자 이메일
 
@@ -774,7 +774,7 @@ def main():
                 st.rerun()
 
     # ----------------------------------
-    # [STEP 999] 통합 결과 화면 (순서 고정 버전)
+    # [STEP 999] 통합 결과 화면
     # ----------------------------------
     elif current_step == 999:
         res = st.session_state['final_result']
@@ -787,28 +787,37 @@ def main():
         if st.session_state['user_info'].get('email'):
             st.success(f"📧 입력하신 이메일({st.session_state['user_info']['email']})로 상세 결과 가이드를 보내드렸습니다.")
 
-        # 제목 표시
-        max_score = max(scores.values())
-        tied_keys = [k for k, v in scores.items() if v == max_score]
-
-        if len(tied_keys) > 1:
-            tied_names = [TYPE_MAP[k] for k in tied_keys]
-            title_text = " 또는 ".join(tied_names)
-            st.title(f"🎉 [{title_text}] 확률이 동일합니다!")
+        # 점수 정렬 (내림차순)
+        sorted_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+        max_score = sorted_scores[0][1]
+        
+        # [핵심 변경] 1등과 점수 차이가 0.2 이하인 모든 체질 찾기 (2등, 3등, 4등 포함)
+        close_candidates = []
+        close_candidates.append(sorted_scores[0]) # 1등은 무조건 포함
+        
+        for i in range(1, 4):
+            diff = max_score - sorted_scores[i][1]
+            if diff <= 0.2:
+                close_candidates.append(sorted_scores[i])
+            else:
+                # 정렬되어 있으므로, 차이가 0.2보다 커지는 순간 뒤쪽은 볼 필요 없음
+                break
+        
+        # 2개 이상이 근소한 차이인 경우
+        if len(close_candidates) > 1:
+            names = [TYPE_MAP[c[0]] for c in close_candidates]
+            title_text = ", ".join(names)
+            st.title(f"🎉 [{title_text}] 성향이 비슷하게 나왔습니다")
+            
+            # 그룹 내 최대 차이 계산 (1등과 꼴찌)
+            max_diff_in_group = max_score - close_candidates[-1][1]
+            
+            st.warning(f"📢 **알림:** 상위 {len(close_candidates)}개 체질의 점수 차이가 **{max_diff_in_group:.1f}점 이내**로 매우 근소합니다.\n\n정확히 체질을 알고 싶으시다면 원장님과 더 상담해보세요.")
+            
         else:
+            # 기존 단독 우승 메시지
             my_name = TYPE_MAP[my_code]
             st.title(f"🎉 당신은 [{my_name}] 입니다!")
-            
-            # [추가된 로직] 2등과 점수 차이가 0.2 이하인 경우 알림 표시
-            sorted_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
-            if len(sorted_scores) >= 2:
-                first_s = sorted_scores[0]
-                second_s = sorted_scores[1]
-                diff = first_s[1] - second_s[1]
-                
-                if 0 < diff <= 0.2:
-                    second_name = TYPE_MAP[second_s[0]]
-                    st.warning(f"📢 **알림:** [{second_name}] 점수와 차이가 **{diff:.1f}점**으로 매우 근소합니다.\n\n두 체질의 성향이 비슷하게 나타나거나, [{my_name}]일 확률이 조금 더 높습니다.")
 
         # [요청사항 적용 1] 닥터 제마의 한마디 (결과 상단 배치)
         st.info("""
@@ -863,7 +872,7 @@ def main():
         st.markdown("---")
         
         # =========================================================
-        # 상세 건강 가이드 출력 (영문 표기 제거 완료)
+        # 상세 건강 가이드 출력
         # =========================================================
         
         if my_code == 'TE': # 태음인
@@ -906,7 +915,6 @@ def main():
             """, unsafe_allow_html=True)
             
             st.markdown("---")
-            # [수정됨] 
             st.subheader("🏥 태음인 체질 증상 및 질환")
             st.markdown("""
             **특성:** 간대폐소(肝大肺小). 흡수 기능은 강하나 발산과 배출 기능이 약해 노폐물이 잘 쌓이고, 호흡기와 심혈관이 취약함.
@@ -992,7 +1000,6 @@ def main():
             """, unsafe_allow_html=True)
             
             st.markdown("---")
-            # [수정됨] 
             st.subheader("🏥 소양인 체질 증상 및 질환")
             st.markdown("""
             **특성:** 비대신소(脾大腎小). 소화력은 좋으나 신장/방광/자궁이 약함. 상체로 열이 잘 오르고(상열), 하체가 약하며 진액(수분)이 부족하기 쉬움.
@@ -1077,7 +1084,6 @@ def main():
             """, unsafe_allow_html=True)
             
             st.markdown("---")
-            # [수정됨] 
             st.subheader("🏥 소음인 체질 증상 및 질환")
             st.markdown("""
             **특성:** 신대비소(腎大脾小). 신장/생식기 기능은 좋으나 위장이 차고 소화력이 약함. 몸이 차고(냉증), 예민하며 체력이 약해지기 쉬움.
@@ -1162,7 +1168,6 @@ def main():
             """, unsafe_allow_html=True)
             
             st.markdown("---")
-            # [수정됨] 
             st.subheader("🏥 태양인 체질 증상 및 질환")
             st.markdown("""
             **특성:** 폐대간소(肺大肝小). 폐 기능은 강하나 간 기능이 매우 약함. 기운이 위로 솟구쳐 하체가 약해지기 쉽고 구토 증상이 잦을 수 있음. (가장 드문 체질)
