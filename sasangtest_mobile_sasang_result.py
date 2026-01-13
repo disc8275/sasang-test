@@ -980,7 +980,7 @@ def main():
     # ----------------------------------
     if current_step == 0:
         st.markdown("<h1 style='text-align: center;'>디스코한의원 종합 문진표 (처방용)</h1>", unsafe_allow_html=True)
-        st.info("본 프로그램은 사상체질병증 한의표준임상진료지침을 준수하여 40개 문항으로 제작되었습니다. 꼼꼼하게 읽고 작성해주십시오.")
+        st.info("본 설문은 환자분의 현재 몸 상태를 정확히 파악하기 위한 통합 문진입니다. 100문항이 넘어서 많이 힘드시겠지만, 솔직하게 답변해 주십시오.")
         
         with st.form("info_form"):
             name = st.text_input("이름 (필수)", placeholder="홍길동")
