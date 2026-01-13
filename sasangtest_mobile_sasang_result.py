@@ -1,0 +1,1736 @@
+# -*- coding: utf-8 -*-
+import streamlit as st
+import pandas as pd
+import streamlit.components.v1 as components
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from datetime import datetime
+
+# ==========================================
+# [설정] 이메일 발송 정보 (보안 적용)
+# ==========================================
+try:
+    SENDER_EMAIL = st.secrets["SENDER_EMAIL"]
+    SENDER_PASSWORD = st.secrets["SENDER_PASSWORD"]
+except:
+    # 로컬 테스트용 더미 값
+    SENDER_EMAIL = "disc8275@gmail.com" 
+    SENDER_PASSWORD = "axrd kith cizs svzg" 
+
+RECEIVER_EMAIL = "ds1lih@naver.com" # 관리자 이메일
+
+# ==========================================
+# [데이터 A] 사상체질 진단 데이터
+# ==========================================
+TYPE_MAP = {'TY': '태양인', 'SY': '소양인', 'TE': '태음인', 'SE': '소음인'}
+
+# 사상체질 질문 목록
+QUESTIONS_SASANG = [
+    {"q": "오래 서 있거나 걷는 게 유난히 힘들고 다리에 힘이 없나요?", "type": "TY"},
+    {"q": "가슴이 넓고 딱 벌어졌지만, 엉덩이 쪽은 빈약한 편인가요?", "type": "SY"},
+    {"q": "배와 허리 부위가 굵고, 전체적으로 뼈대가 굵고 살집이 있나요?", "type": "TE"},
+    {"q": "전체적으로 체구가 작고 마른 편이며, 엉덩이가 발달했나요?", "type": "SE"},
+    {"q": "눈매가 날카롭고 강렬해서, 남들이 쳐다보기 어려워하나요?", "type": "TY"},
+    {"q": "눈매가 날렵하고 입술이 얇으며, 턱이 뾰족한 편인가요?", "type": "SY"},
+    {"q": "이목구비가 큼직하고 입술이 두툼해서 점잖은 인상인가요?", "type": "TE"},
+    {"q": "인상이 부드럽고 얌전하며 오밀조밀하게 생겼나요?", "type": "SE"},
+    {"q": "추진력이 강하고 결단력이 있지만, 남의 말을 잘 안 듣나요?", "type": "TY"},
+    {"q": "성격이 급하고 활발하며 솔직하지만, 싫증을 잘 내나요?", "type": "SY"},
+    {"q": "느긋하고 변화를 싫어하며, 속마음을 잘 드러내지 않나요?", "type": "TE"},
+    {"q": "꼼꼼하고 내성적이며, 작은 일에도 걱정이 많은 편인가요?", "type": "SE"},
+    {"q": "화가 나면 확 폭발했다가도 금방 풀리는 편인가요?", "type": "SY"},
+    {"q": "새로운 일을 벌이는 것을 좋아하고 사람 사귀는 걸 즐기나요?", "type": "TY"},
+    {"q": "겁이 많고 가슴이 자주 두근거리나요?", "type": "TE"},
+    {"q": "불안한 마음이 자주 들고 질투심이 좀 있는 편인가요?", "type": "SE"},
+    {"q": "음식을 먹으면 자꾸 토하거나 체하는 증상이 심한가요?", "type": "TY"},
+    {"q": "소화가 아주 잘 돼서 과식하는 편이고, 배고픔을 못 참나요?", "type": "SY"},
+    {"q": "무엇이든 잘 먹고, 많이 먹어도 소화에 큰 문제가 없나요?", "type": "TE"},
+    {"q": "입이 짧고 소화가 잘 안 되며, 조금만 많이 먹어도 불편한가요?", "type": "SE"},
+    {"q": "찬물이나 아이스크림을 먹어도 배탈이 잘 안 나나요?", "type": "SY"},
+    {"q": "찬 음식을 먹으면 바로 설사를 하거나 배가 아픈가요?", "type": "SE"},
+    {"q": "평소 땀이 잘 안 나고, 땀을 흘리면 오히려 개운한가요?", "type": "TE"},
+    {"q": "조금만 움직여도 땀이 나고, 땀 흘리면 기운이 쏙 빠지나요?", "type": "SE"},
+    {"q": "머리나 얼굴, 가슴 쪽에만 유독 땀이 많이 나나요?", "type": "SY"},
+    {"q": "운동으로 땀을 흠뻑 흘려야 몸이 가볍고 컨디션이 좋나요?", "type": "TE"},
+    {"q": "소변을 시원하게 잘 보면 몸이 건강하다고 느끼나요?", "type": "TY"},
+    {"q": "변비가 있어서 며칠 화장실을 못 가도 배가 안 아프나요?", "type": "TE"},
+    {"q": "변비가 생기면 가슴이 답답하고 무척 괴롭나요?", "type": "SY"},
+    {"q": "대변이 묽지 않고 모양 있게 잘 나오면 속이 편한가요?", "type": "SY"},
+    {"q": "설사를 하면 기운이 쫙 빠지고 배가 아픈가요?", "type": "SE"},
+    {"q": "추위를 아주 많이 타고 손발이 차며, 여름에도 이불을 덮나요?", "type": "SE"},
+    {"q": "더위를 못 참아서 찬물을 벌컥벌컥 마시나요?", "type": "SY"},
+    {"q": "이유 없이 다리에 힘이 풀려서 걷기 힘들 때가 있나요?", "type": "TY"},
+    {"q": "피부나 코, 기관지가 건조하고 뻑뻑한 느낌이 드나요?", "type": "TE"},
+    {"q": "오후나 밤이 되면 몸에 열이 확 오르는 느낌이 있나요?", "type": "SY"},
+    {"q": "피곤하면 눈이 쉽게 충혈되고 건조해지나요?", "type": "TE"},
+]
+
+OPTIONS_SASANG = ["전혀 아니다", "아니다", "보통이다", "그렇다", "매우 그렇다"]
+
+# ==========================================
+# [데이터 B] 장부변증 진단 데이터 (복구됨)
+# ==========================================
+PATTERNS = {
+    # --- 1. 심(Heart) 계열 ---
+    '심기허(心氣虛) & 심양허(心陽虛)': {
+        'symptoms': [
+            {'question': '가슴이 두근거리고 숨이 차다.', 'weight': 5},
+            {'question': '식은땀이 나면서 동시에 피로감이 심하다.', 'weight': 4},
+            {'question': '가슴이 답답하고 아프다.', 'weight': 5},
+            {'question': '추위를 많이 타고 손발이 차다.', 'weight': 4}
+        ],
+        'prescription': '양심탕(養心湯), 보원탕(保元湯)',
+        'reference': '동의보감, 심계편'
+    },
+    '심혈허(心血虛) & 심음허(心陰虛)': {
+        'symptoms': [
+            {'question': '잠이 잘 안 오지 않거나 꿈을 많이 꾼다.', 'weight': 5},
+            {'question': '가슴이 두근거리고 건망증이 있다.', 'weight': 4},
+            {'question': '오후에 열이 오르거나 잘 때 식은땀이 난다.', 'weight': 5},
+            {'question': '입과 목이 마르고 혀가 붉다.', 'weight': 3}
+        ],
+        'prescription': '천왕보심단(天王補心丹), 사물탕(四物湯) 가감',
+        'reference': '동의보감'
+    },
+    '심화항성(心火亢盛)': {
+        'symptoms': [
+            {'question': '가슴이 답답하고 열이 난다.', 'weight': 5},
+            {'question': '입안이나 혀가 헐고 아프다.', 'weight': 5},
+            {'question': '소변색이 붉고 동시에 혀끝도 매우 붉다.', 'weight': 4}
+        ],
+        'prescription': '도적산(導赤散), 사심탕(瀉心湯)',
+        'reference': '방약합편'
+    },
+    '심혈어조(心血瘀阻)': {
+        'symptoms': [
+            {'question': '심장 부위가 콕콕 찌르거나 쥐어짜듯이 아프다.', 'weight': 5},
+            {'question': '가슴이 답답하고 입술이나 혀가 푸르스름하다.', 'weight': 5},
+            {'question': '통증이 등이나 어깨로 퍼지기도 한다.', 'weight': 3}
+        ],
+        'prescription': '혈부축어탕(血府逐瘀湯), 단삼음(丹參飮)',
+        'reference': '의림개착'
+    },
+    '담화요심(痰火擾心)': {
+        'symptoms': [
+            {'question': '가슴이 답답하고 두근거림이 심하다.', 'weight': 4},
+            {'question': '불면증이 심하고 꿈을 많이 꾸며 잘 놀란다.', 'weight': 5},
+            {'question': '정신이 혼미하거나 감정 기복이 심하다.', 'weight': 5},
+            {'question': '가래가 끈적하고 입도 쓰다.', 'weight': 3}
+        ],
+        'prescription': '온담탕(溫膽湯), 황련온담탕(黃連溫膽湯)',
+        'reference': '방약합편'
+    },
+    '심신불교(心腎不交)': {
+        'symptoms': [
+            {'question': '가슴 위쪽은 열이 나고 답답한데, 아랫배나 발은 차갑다.', 'weight': 5},
+            {'question': '잠들기 힘들고 꿈이 많아 자고 나도 피곤하다.', 'weight': 5},
+            {'question': '허리가 시큰거리고 귀에서 소리가 난다.', 'weight': 3}
+        ],
+        'prescription': '교태환(交泰丸), 천왕보심단(天王補心丹) 합 육미지황탕',
+        'reference': '동의보감'
+    },
+
+    # --- 2. 폐(Lung) 계열 ---
+    '폐기허(肺氣虛)': {
+        'symptoms': [
+            {'question': '기침 소리가 약하고 말하기 싫어한다.', 'weight': 5},
+            {'question': '조금만 움직여도 숨이 차고 땀이 난다.', 'weight': 4},
+            {'question': '가래가 있지만 색이 희거나 맑다.', 'weight': 3}
+        ],
+        'prescription': '보폐탕(補肺湯), 옥병풍산(玉屛風散)',
+        'reference': '의학입문'
+    },
+    '폐음허(肺陰虛)': {
+        'symptoms': [
+            {'question': '마른 기침을 하지만, 가래가 없거나 끈적하다.', 'weight': 5},
+            {'question': '가래에 피가 섞이거나 목이 쉰다.', 'weight': 5},
+            {'question': '오후에 열이 오르면서 잘 때도 식은땀이 난다.', 'weight': 4}
+        ],
+        'prescription': '백합고금탕(百合固金湯), 자음강화탕(滋陰降火湯)',
+        'reference': '동의보감'
+    },
+    '담습조폐(痰濕阻肺)': {
+        'symptoms': [
+            {'question': '기침과 함께 희고 끈적한 가래가 많다.', 'weight': 5},
+            {'question': '가슴이 그득하고 답답하여 눕기가 불편하다.', 'weight': 5},
+            {'question': '몸이 무겁고 붓는 느낌이 든다.', 'weight': 3}
+        ],
+        'prescription': '이진탕(二陳湯), 삼자양친탕(三子養親湯)',
+        'reference': '방약합편'
+    },
+
+    # --- 3. 비위(Spleen & Stomach) 계열 ---
+    '비기허(脾氣虛) & 비양허(脾陽虛)': {
+        'symptoms': [
+            {'question': '입맛이 없으면서 동시에 식후에 배가 더부룩하다.', 'weight': 5},
+            {'question': '대변이 묽으면서 동시에 사지에 힘이 없다.', 'weight': 4},
+            {'question': '배가 차고 아프지만 따뜻하게 하면 편해진다.', 'weight': 5},
+            {'question': '얼굴색이 누렇게 뜬다.', 'weight': 3}
+        ],
+        'prescription': '삼령백출산(參苓白朮散), 이중탕(理中湯)',
+        'reference': '제중신편'
+    },
+    '한습곤비(寒濕困脾)': {
+        'symptoms': [
+            {'question': '입안이 끈적하고 음식 맛이 잘 안 느껴진다.', 'weight': 5},
+            {'question': '머리와 몸이 젖은 솜처럼 무겁거나 습한 날 증상이 심해진다.', 'weight': 5},
+            {'question': '대변이 묽거나 설사를 하고 배가 차다.', 'weight': 4},
+            {'question': '속이 메스껍고 식욕이 떨어진다.', 'weight': 3}
+        ],
+        'prescription': '위령탕(胃苓湯), 곽향정기산(藿香正氣散)',
+        'reference': '방약합편'
+    },
+    '위화항성(胃火亢盛) & 식체': {
+        'symptoms': [
+            {'question': '치통이 있거나 잇몸에서 피가 난다.', 'weight': 3},
+            {'question': '입 냄새가 심하고 배가 빨리 고프다.', 'weight': 4},
+            {'question': '트림에서 냄새가 나고 신물이 올라온다.', 'weight': 5}
+        ],
+        'prescription': '청위산(淸胃散), 평위산(平胃散)',
+        'reference': '동의보감'
+    },
+    '위음허(胃陰虛)': {
+        'symptoms': [
+            {'question': '입이 마르고 갈증이 나지만 물을 많이 마시지는 않는다.', 'weight': 5},
+            {'question': '혀가 붉고 태가 거의 없어 반질반질하다.', 'weight': 5},
+            {'question': '배가 고픈 느낌은 있는데 음식을 먹고 싶지 않다.', 'weight': 4},
+            {'question': '속쓰림이나 헛구역질이 있다.', 'weight': 3}
+        ],
+        'prescription': '익위탕(益胃湯), 사삼맥문동탕(沙蔘麥門冬湯)',
+        'reference': '온병조변'
+    },
+
+    # --- 4. 간담(Liver & Gallbladder) 계열 ---
+    '간기울결(肝氣鬱結)': {
+        'symptoms': [
+            {'question': '평소 한숨을 자주 쉬고 우울감을 느낀다.', 'weight': 4},
+            {'question': '옆구리나 가슴이 그득하게 아프다.', 'weight': 5},
+            {'question': '목에 무언가 걸린 듯한 느낌이 있다.', 'weight': 3},
+            {'question': '여성의 경우 생리통이나 생리불순이 있다.', 'weight': 4}
+        ],
+        'prescription': '소요산(逍遙散), 시호소간산(柴胡疎肝散)',
+        'reference': '경악전서'
+    },
+    '간화상염(肝火上炎)': {
+        'symptoms': [
+            {'question': '성격이 급하고 화를 참기 힘들다.', 'weight': 4},
+            {'question': '머리와 눈이 붉고 아프며 어지럽다.', 'weight': 5},
+            {'question': '입이 쓰고 마르며 귀에서 소리가 난다.', 'weight': 3}
+        ],
+        'prescription': '용담사간탕(龍膽瀉肝湯)',
+        'reference': '방약합편'
+    },
+    '간양상항(肝陽上亢)': {
+        'symptoms': [
+            {'question': '심한 현기증이 있고 머리가 터질 듯 아프다(특히 옆머리).', 'weight': 5},
+            {'question': '얼굴이 붉어지고 화를 잘 내며 혈압이 높은 편이다.', 'weight': 4},
+            {'question': '허리나 무릎에 힘이 없고 머리가 무겁다.', 'weight': 3}
+        ],
+        'prescription': '천마구등음(天麻鉤藤飮), 진간식풍탕(鎭肝熄風湯)',
+        'reference': '의학충중참서루'
+    },
+    '간혈허(肝血虛)': {
+        'symptoms': [
+            {'question': '어지럽고 눈이 건조하며 침침하다.', 'weight': 5},
+            {'question': '손발에 쥐가 잘 나거나 근육 경련이 있다.', 'weight': 5},
+            {'question': '손톱이 마르고 갈라지며 윤기가 없다.', 'weight': 3},
+            {'question': '여성의 경우 생리량이 매우 적다.', 'weight': 4}
+        ],
+        'prescription': '사물탕(四物湯) 가미, 보간탕(補肝湯)',
+        'reference': '동의보감, 의학입문'
+    },
+    '담담습열(膽談濕熱) & 담허(膽虛)': {
+        'symptoms': [
+            {'question': '입이 쓰고 옆구리가 결리거나 아프다.', 'weight': 5},
+            {'question': '잘 놀라고 겁이 많으며 잠을 깊이 못 잔다.', 'weight': 5},
+            {'question': '결단력이 부족하고 한숨을 잘 쉰다.', 'weight': 3},
+            {'question': '토하고 싶거나 속이 울렁거린다.', 'weight': 3}
+        ],
+        'prescription': '(습열) 인진호탕, (담허) 온담탕',
+        'reference': '상한론, 동의보감'
+    },
+
+    # --- 5. 신장/방광(Kidney & Bladder) 계열 ---
+    '신양허(腎陽虛)': {
+        'symptoms': [
+            {'question': '허리와 무릎이 시리고 아프다.', 'weight': 5},
+            {'question': '추위를 심하게 타고 손발이 차다.', 'weight': 4},
+            {'question': '새벽에 설사를 하거나 소변을 자주 본다.', 'weight': 4},
+            {'question': '성기능이 감퇴(발기부전, 조루 등)되었다.', 'weight': 3}
+        ],
+        'prescription': '팔미지황환(八味地黃丸), 우귀음(右歸飮)',
+        'reference': '동의보감'
+    },
+    '신음허(腎陰虛)': {
+        'symptoms': [
+            {'question': '허리와 무릎이 시큰거리고 힘이 없다.', 'weight': 5},
+            {'question': '얼굴이나 손발바닥에 열감이 느껴진다.', 'weight': 4},
+            {'question': '귀에서 소리가 나거나, 치아가 흔들리고 약하다.', 'weight': 3},
+            {'question': '입이 마르고 소변색이 진하다.', 'weight': 3}
+        ],
+        'prescription': '육미지황탕(六味地黃湯), 좌귀음(左歸飮)',
+        'reference': '동의보감'
+    },
+    '신정허(腎精虛)': {
+        'symptoms': [
+            {'question': '건망증이 심해지거나 머리카락이 많이 빠진다.', 'weight': 4},
+            {'question': '동작이 둔해지고 다리에 힘이 없거나 치아가 흔들린다.', 'weight': 5},
+            {'question': '귀에서 소리가 나거나 청력이 떨어진다.', 'weight': 4},
+            {'question': '성인의 경우 조기 노화, 소아의 경우 발육이 늦다.', 'weight': 5}
+        ],
+        'prescription': '하거대조환(河車大造丸), 좌귀환(左歸丸)',
+        'reference': '경악전서'
+    },
+    '방광습열(膀胱濕熱)': {
+        'symptoms': [
+            {'question': '소변을 자주 보고 급하게 마렵다.', 'weight': 5},
+            {'question': '소변을 볼 때 찌릿하거나 아프다.', 'weight': 5},
+            {'question': '소변 색이 붉거나 탁하고 아랫배가 빵빵하다.', 'weight': 4}
+        ],
+        'prescription': '팔정산(八正散)',
+        'reference': '방약합편'
+    },
+
+    # --- 6. 기타/복합 계열 ---
+    '대장습열(大腸濕熱)': {
+        'symptoms': [
+            {'question': '배가 아프고 변을 봐도 시원치 않다.', 'weight': 5},
+            {'question': '대변에 점액이나 피가 섞여 나온다.', 'weight': 5},
+            {'question': '항문이 작열감이 있다.', 'weight': 3}
+        ],
+        'prescription': '작약탕(芍藥湯), 백두옹탕(白頭翁湯)',
+        'reference': '방약합편'
+    },
+    '어혈(瘀血) (전신성)': {
+        'symptoms': [
+            {'question': '특정 부위가 콕콕 찌르는 듯이 아프고 위치가 고정되어 있다.', 'weight': 5},
+            {'question': '통증이 밤에 더 심해진다.', 'weight': 4},
+            {'question': '피부에 멍이 잘 들거나 혀에 보라색 반점이 있다.', 'weight': 4},
+            {'question': '피부가 거칠고 윤기가 없다.', 'weight': 3}
+        ],
+        'prescription': '당귀수산(當歸鬚散), 계지복령환(桂枝茯苓丸)',
+        'reference': '금궤요략'
+    },
+    '기체혈어(氣滯血瘀)': {
+        'symptoms': [
+            {'question': '스트레스를 받으면 통증이 심해진다.', 'weight': 4},
+            {'question': '처음에는 아픈 곳이 이동하다가 나중에는 한 곳이 찌르듯 아프다.', 'weight': 5},
+            {'question': '가슴이 답답하고 한숨이 나오며 성격이 예민하다.', 'weight': 4},
+            {'question': '통증 부위를 누르면 더 아프다.', 'weight': 3}
+        ],
+        'prescription': '혈부축어탕(血府逐瘀湯), 복원활혈탕(復元活血湯)',
+        'reference': '의림개착'
+    }
+}
+
+OPTIONS_JANGBU = ["아니오 (No)", "예 (Yes)"]
+
+# ==========================================
+# [데이터 전처리] 장부변증 중복 질문 통합
+# ==========================================
+QUESTION_MAP = {}    # { 질문텍스트 : [{'pattern':패턴명, 'weight':가중치}, ...] }
+UNIQUE_QUESTIONS_JANGBU = [] # 중복이 제거된 장부변증 질문 리스트
+
+for pattern_key, data in PATTERNS.items():
+    for item in data['symptoms']:
+        q_text = item['question']
+        weight = item['weight']
+        
+        if q_text in QUESTION_MAP:
+            QUESTION_MAP[q_text].append({'pattern': pattern_key, 'weight': weight})
+        else:
+            QUESTION_MAP[q_text] = [{'pattern': pattern_key, 'weight': weight}]
+            UNIQUE_QUESTIONS_JANGBU.append(q_text)
+
+# ==========================================
+# 1. 페이지 설정 및 스타일
+# ==========================================
+st.set_page_config(page_title="디스코한의원 종합 문진표 (처방용)", layout="centered")
+
+st.markdown("""
+    <style>
+    /* [화면 표시용 스타일] */
+    h1 { 
+        font-size: 1.5rem; 
+        font-weight: 700;
+    }
+    h3 { 
+        color: #16a085; 
+        font-size: 1.2rem; 
+    }
+    .stButton button {
+        height: 3rem;
+        font-size: 1.2rem;
+        border-radius: 10px;
+    }
+    div[data-testid="stRadio"] label {
+        font-size: 1.1rem !important;
+        padding: 10px 0;
+        cursor: pointer;
+        color: var(--text-color) !important; 
+    }
+    .question-text {
+        font-size: 1.3rem;
+        font-weight: bold;
+        color: var(--text-color); 
+        margin-bottom: 20px;
+        line-height: 1.5;
+    }
+    
+    /* [공통 테이블 스타일] */
+    .guide-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        margin-bottom: 20px;
+        font-size: 1rem;
+    }
+    .guide-table th {
+        background-color: #f0f2f6;
+        color: #333;
+        padding: 12px;
+        border: 1px solid #ddd;
+        text-align: center;
+        font-weight: bold;
+    }
+    .guide-table td {
+        padding: 10px;
+        border: 1px solid #ddd;
+        vertical-align: top;
+        color: var(--text-color);
+    }
+    
+    @media (prefers-color-scheme: dark) {
+        .guide-table th {
+            background-color: #444;
+            color: #fff;
+            border-color: #666;
+        }
+        .guide-table td {
+            border-color: #666;
+        }
+    }
+
+    /* [인쇄 전용 스타일] */
+    @media print {
+        * { 
+            color: black !important; 
+            background-color: white !important;
+            -webkit-print-color-adjust: exact !important; 
+            print-color-adjust: exact !important; 
+        }
+
+        .guide-table th {
+            background-color: #eee !important;
+            color: black !important;
+            border: 1px solid black !important;
+        }
+        .guide-table td {
+            color: black !important;
+            border: 1px solid black !important;
+        }
+
+        .page-break { 
+            page-break-before: always !important; 
+            display: block !important; 
+            height: 1px; 
+        }
+
+        @page {
+            margin: 0mm !important; 
+            size: auto; 
+        }
+
+        html, body {
+            margin: 0 !important; 
+            padding: 0 !important; 
+            height: auto !important; 
+            min-height: 0 !important; 
+            overflow: visible !important; 
+        }
+        
+        .stApp {
+            min-height: 0 !important; 
+            height: auto !important; 
+            overflow: visible !important; 
+            background-color: white !important; 
+        }
+
+        .block-container {
+            margin: 15mm 15mm 0 15mm !important; 
+            padding-top: 0 !important; 
+            padding-bottom: 0 !important; 
+            width: auto !important; 
+        }
+
+        section[data-testid="stSidebar"], 
+        header, 
+        footer, 
+        .stAppDeployButton, 
+        button, 
+        .stButton, 
+        div[data-testid="stHorizontalBlock"], 
+        .stProgress, 
+        iframe,
+        textarea, 
+        .stTextArea {
+            display: none !important; 
+            height: 0 !important; 
+            width: 0 !important; 
+            margin: 0 !important; 
+            padding: 0 !important; 
+            opacity: 0 !important; 
+            visibility: hidden !important; 
+        }
+        
+        iframe[title="streamlit.components.v1.components.html"] {
+            display: none !important; 
+            height: 0 !important; 
+        }
+    }
+    /* [추가] 체질 명칭 가로 배열 및 검정색 설정 */
+    .constitution-container {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        background-color: #ffffff; /* 배경 흰색 */
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid #dddddd;
+        margin: 20px 0;
+    }
+    .constitution-box {
+        text-align: center;
+        flex: 1;
+    }
+    .constitution-label {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #000000 !important; /* 글자색 검정 고정 */
+        display: block;
+        margin-bottom: 5px;
+    }
+    .constitution-score {
+        font-size: 1.1rem;
+        color: #333333 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# ==========================================
+# 세션 상태 초기화
+# ==========================================
+TOTAL_SASANG_Q = len(QUESTIONS_SASANG)
+TOTAL_SASANG_SYM = 3
+TOTAL_JANGBU_Q = len(UNIQUE_QUESTIONS_JANGBU)
+TOTAL_STEPS = TOTAL_SASANG_Q + TOTAL_SASANG_SYM + TOTAL_JANGBU_Q
+
+if 'step' not in st.session_state:
+    st.session_state['step'] = 0  
+if 'user_info' not in st.session_state:
+    st.session_state['user_info'] = {}
+
+# 사상체질 답변 저장소
+if 'answers_sasang' not in st.session_state:
+    st.session_state['answers_sasang'] = [2] * TOTAL_SASANG_Q 
+if 'answers_log_sasang' not in st.session_state:
+    st.session_state['answers_log_sasang'] = [""] * TOTAL_SASANG_Q
+if 'symptom_answers' not in st.session_state:
+    st.session_state['symptom_answers'] = {}
+
+# 장부변증 답변 저장소 (복구됨)
+if 'answers_jangbu' not in st.session_state:
+    st.session_state['answers_jangbu'] = [0] * TOTAL_JANGBU_Q
+if 'answers_log_jangbu' not in st.session_state:
+    st.session_state['answers_log_jangbu'] = [""] * TOTAL_JANGBU_Q
+
+if 'final_result' not in st.session_state:
+    st.session_state['final_result'] = None
+
+# ==========================================
+# 로직 함수 (이메일 및 사상체질 분석)
+# ==========================================
+def send_email_logic(target_email, subject, body):
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = SENDER_EMAIL
+        msg['To'] = target_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(SENDER_EMAIL, SENDER_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Email Fail to {target_email}: {e}")
+        return False
+
+# 사용자에게 보낼 전체 결과 텍스트 생성 (디자인 적용됨)
+def get_full_guide_text(code):
+    text = ""
+    if code == 'TY':
+        text += "📋 태양인 상세 가이드\n\n"
+        text += "1. 태양인의 특징\n"
+        text += "에너지를 축적하는 기능은 약하고, 발산/소모시키는 기능은 강합니다.\n"
+        text += "머리와 목덜미가 발달한 반면, 허리나 하체가 빈약한 편입니다.\n\n"
+        text += "🚨 건강이 안 좋아지면 나타나는 증상\n"
+        text += "신체: 쉽게 몸살이 나고, 하체가 쉽게 피로하여 오래 걷기 힘듭니다.\n"
+        text += "배설: 소변 양과 횟수가 줄거나, 대변이 염소똥처럼 굳어집니다.\n"
+        text += "입/소화: 입 안에 맑은 침이나 거품이 고이고, 구역질을 합니다.\n"
+        text += "정서: 매사에 조급해지고 화가 잘 납니다.\n\n"
+        text += "💡 평소 생활 실천 사항\n"
+        text += "식사: 매운 자극성 음식, 고지방 음식을 피하고 담백한 음식/해물/채소가 좋습니다.\n"
+        text += "운동: 과격한 운동은 피하고, 허리/하체 근력 강화 운동을 하세요.\n"
+        text += "마음: 조급해하지 말고 여유를 가지며, 원만한 인간관계를 유지하세요.\n\n"
+        text += "🍽️ 식품군별 권장 음식 상세\n"
+        text += "- 곡류군: 메밀(국수, 묵, 밥) / (보리, 녹두, 팥)\n"
+        text += "- 저지방 어육류: 굴, 새우, 게, 오징어, 문어, 전복, 조개, 해삼, 홍합 / (흰살생선)\n"
+        text += "- 중지방 어육류: (사용 가능) 고등어, 꽁치, 장어\n"
+        text += "- 고지방 어육류: (해당 없음 / 육류는 피하는 것이 좋음)\n"
+        text += "- 채소군: 상추, 깻잎, 배추, 오이, 가지, 시금치, 우엉, 숙주나물, 죽순\n"
+        text += "- 지방군/우유/과일: 참깨 / 포도, 머루, 다래, 감, 키위, 파인애플, 오렌지\n\n"
+        text += "🏥 태양인 체질 증상 및 질환\n"
+        text += "특성: 폐대간소(肺大肝小). 폐 기능은 강하나 간 기능이 매우 약함. 기운이 위로 솟구쳐 하체가 약해지기 쉽고 구토 증상이 잦을 수 있음. (가장 드문 체질)\n"
+        text += "- 노화 (근골격): 하체 무력감, 다리에 힘이 풀림, 삼킴 장애(열격), 면역계 질환, 마비 질환\n"
+        text += "- 수험생/청소년: 독창적이나 화를 참지 못함.\n"
+        text += "- 여성: 원인 불명의 불임, 심한 입덧.\n"
+        text += "- 일반 (간/피부): 약물 과민 반응(간 해독력 저하), 아토피 등 피부 질환.\n\n"
+        text += "🥗 추천 약재·음식·영양제\n"
+        text += "- 한약재: 오가피(근골격을 튼튼하게 하여 하체 무력감 보강), 모과(근육의 경직을 풀고 위장 편안하게 함), 다래(미후도, 위로 치솟는 기운을 내리고 열을 식힘)\n"
+        text += "- 음식: 해산물(문어, 조개, 게 - 타우린이 간 기능을 돕고 피로 회복), 메밀(몸의 열을 내리고 소화를 도움), 포도/키위(진액을 생성하고 피로를 풂)\n"
+        text += "- 영양제: 클로렐라/스피루리나(엽록소가 풍부한 해조류로 간 해독 및 항산화), MSM(식이유황, 해독 작용 및 관절/연골 건강 보조), 유산균(육식보다는 채식 위주의 식단과 함께 장 건강 관리)\n\n"
+        text += "🌟 태양인으로 추정되는 유명인\n"
+        text += "※ 알림: 이 내용은 인물의 대중적 이미지와 캐릭터를 바탕으로 한 재미 위주의 가상 분류입니다. 실제 의학적 체질 진단과는 다를 수 있으니 가볍게 즐겨주세요!\n\n"
+        text += "\"카리스마 넘치는 직관의 리더\"\n"
+        text += "태양인은 만 명 중 한두 명 있을 정도로 매우 드문 체질입니다. 강한 추진력과 카리스마, 남다른 직관력을 가졌으며, 남들이 범접하기 힘든 독보적인 아우라를 뿜어냅니다.\n\n"
+        text += "- 배우: 차승원, 김윤석 (강렬한 인상과 화면을 장악하는 남성미)\n"
+        text += "- 가수: 나훈아, 임재범 (폭발적인 성량과 무대 전체를 지배하는 쇼맨십)\n"
+        text += "- K-pop 아이돌: 지드래곤(GD), 카리나(aespa), 전소연((G)I-DLE) (비현실적인 비주얼과 천재적인 프로듀싱 능력, 리더십)\n"
+        text += "- 삼국지 장군: 관우 (천하를 호령하는 위엄과 굽히지 않는 충절, 긴 수염을 휘날리는 압도적 풍채)\n"
+        text += "- 우리나라 위인: 이제마 (사상의학의 창시자), 박정희 (강력한 추진력)\n"
+        text += "- 역사 속 위인: 나폴레옹 (세상을 바꾸려는 강력한 영웅 심리)\n"
+        text += "- 동물: 사자, 용, 독수리 (백수의 왕, 하늘의 제왕처럼 비범함)\n"
+
+    elif code == 'SY':
+        text += "📋 소양인 상세 가이드\n\n"
+        text += "1. 소양인의 특징\n"
+        text += "몸에 열이 많습니다.\n"
+        text += "신경이 예민하고, 피부, 장, 방광 등이 과민한 편입니다.\n\n"
+        text += "🚨 건강이 안 좋아지면 나타나는 증상\n"
+        text += "수면/정서: 잠들기 어렵고 자주 깨며, 마음이 조급하고 불안합니다.\n"
+        text += "배설: 소변을 자주 보거나 색이 진하며, 변비나 설사가 잦습니다.\n"
+        text += "신체: 얼굴이나 피부 트러블이 잦고, 입이 마르며 갈증이 납니다.\n"
+        text += "소화: 가슴이 답답하고 속이 쓰리거나 구역질을 합니다.\n\n"
+        text += "💡 평소 생활 실천 사항\n"
+        text += "수면/마음: 충분한 수면을 취하고, 매사에 여유를 가지려 노력하세요.\n"
+        text += "식사: 천천히 식사하며, 서늘한 성질의 음식/해물/채소가 좋습니다.\n"
+        text += "피할 것: 맵고 짠 음식, 성질이 더운 음식을 피하세요.\n"
+        text += "운동: 하체를 강화시켜 주는 운동(등산, 자전거 등)이 좋습니다.\n\n"
+        text += "🍽️ 식품군별 권장 음식 상세\n"
+        text += "- 곡류군: 보리, 팥, 녹두 / (메밀, 고구마, 토란)\n"
+        text += "- 저지방 어육류: 돼지고기(살코기), 오리고기, 복어, 굴, 새우, 오징어, 낙지, 조개, 게, 해삼\n"
+        text += "- 중지방 어육류: 돼지고기(안심), 계란 / (두부, 고등어, 꽁치)\n"
+        text += "- 고지방 어육류: 삼겹살, 족발, 돼지갈비, 베이컨\n"
+        text += "- 채소군: 오이, 가지, 배추, 상추, 우엉, 숙주나물, 죽순\n"
+        text += "- 지방군/우유/과일: 참깨, 참기름, 우유 / 딸기, 수박, 바나나, 참외, 메론, 키위\n\n"
+        text += "🏥 소양인 체질 증상 및 질환\n"
+        text += "특성: 비대신소(脾大腎小). 소화력은 좋으나 신장/방광/자궁이 약함. 상체로 열이 잘 오르고(상열), 하체가 약하며 진액(수분)이 부족하기 쉬움.\n"
+        text += "- 노화 (비뇨/골격): 전립선 비대, 요실금, 골다공증, 안구건조, 뇌출혈, 심근경색\n"
+        text += "- 수험생/청소년: 성조숙증 주의, ADHD 성향(산만함), 열로 인한 두통.\n"
+        text += "- 여성: 질 건조증, 방광염, 상열감 심한 갱년기.\n"
+        text += "- 일반 (위장/탈모): 스트레스성 위염(속쓰림), 정수리 열로 인한 탈모.\n\n"
+        text += "🥗 추천 약재·음식·영양제\n"
+        text += "- 한약재: 숙지황(신장 기운 보강, 진액 보충), 구기자·산수유(하체 강화, 정력 증진, 눈 피로 해소), 복령(소변을 잘 나오게 하고 마음을 안정시킴)\n"
+        text += "- 음식: 돼지고기/오리고기(찬 성질로 몸의 화기를 내리고 보양), 수박/참외/오이(천연 이뇨작용 및 체내 열 배출), 굴/전복(바다의 음기를 머금어 신장 보강 및 피부 미용)\n"
+        text += "- 영양제: 알로에(위장의 열을 내리고 배변 활동 보조), 마그네슘(신경 과흥분 조절 및 근육 이완), 콜라겐(진액 부족으로 인한 피부 노화 및 관절 건조 예방)\n\n"
+        text += "🌟 소양인으로 추정되는 유명인\n"
+        text += "※ 알림: 이 내용은 인물의 대중적 이미지와 캐릭터를 바탕으로 한 재미 위주의 가상 분류입니다. 실제 의학적 체질 진단과는 다를 수 있으니 가볍게 즐겨주세요!\n\n"
+        text += "\"재치 만점, 날렵한 분위기 메이커\"\n"
+        text += "성격이 급하지만 뒤끝이 없고, 솔직담백하며 재치와 유머가 넘칩니다. 상체가 발달하고 하체가 약한 편이며, 톡톡 튀는 센스로 주변을 즐겁게 만듭니다.\n\n"
+        text += "- 배우: 김혜수, 전지현, 이병헌 (시원시원한 이목구비와 당당하고 솔직한 매력)\n"
+        text += "- 가수: 이선희, 윤수일, 싸이(PSY) (작은 체구에서 나오는 폭발적 고음과 열정적인 에너지)\n"
+        text += "- K-pop 아이돌: 백현(EXO), 안유진(IVE), 하니(NewJeans) (예능감 넘치는 씩씩한 에너지와 엉뚱한 장난기)\n"
+        text += "- 삼국지 장군: 장비 (행동이 앞서는 불같은 성격, 호탕한 매력의 소유자)\n"
+        text += "- 우리나라 위인: 다산 정약용 (호기심이 많고 다방면에 능통함)\n"
+        text += "- 역사 속 위인: 스티브 잡스 (창의적이고 혁신적이나 성격이 급함)\n"
+        text += "- 동물: 원숭이, 돌고래 (재주가 많고 날렵하며 사교적임)\n"
+
+    elif code == 'TE':
+        text += "📋 태음인 상세 가이드\n\n"
+        text += "1. 태음인의 특징\n"
+        text += "섭취한 에너지를 소모시키고 배설시키는 것이 취약합니다.\n"
+        text += "체구가 큰 편이고, 식욕과 위장기능이 좋아 비만해지기 쉽습니다.\n\n"
+        text += "🚨 건강이 안 좋아지면 나타나는 증상\n"
+        text += "체중/식욕: 살이 찌고, 배가 부른데도 자꾸 먹게 됩니다.\n"
+        text += "배설: 대변이 굳거나 설사가 잦아지는 등 양상이 달라집니다.\n"
+        text += "신체: 땀이 잘 나지 않거나, 상체로만 진땀이 많이 납니다. 아침에 얼굴/손발이 붓습니다.\n"
+        text += "피부: 얼굴이 붉어지고 열감이 많으며, 피부 트러블이 잦습니다.\n\n"
+        text += "💡 평소 생활 실천 사항\n"
+        text += "관리: 변비와 체중 증가를 항상 경계해야 합니다.\n"
+        text += "식사: 과식/폭식/야식을 피하고, 천천히 먹습니다. 식후 바로 눕지 마세요.\n"
+        text += "운동: 땀을 흘릴 정도의 유산소 운동(열량 소모 많은 운동)이 좋습니다.\n\n"
+        text += "🍽️ 식품군별 권장 음식 상세\n"
+        text += "- 곡류군: 현미, 율무, 콩, 고구마, 옥수수, 토란, 밤, 마, 잣, 호두, 땅콩\n"
+        text += "- 저지방 어육류: 소고기(사태, 홍두깨), 대구, 조기, 명태, 민어, 오징어\n"
+        text += "- 중지방 어육류: 소고기(등심, 안심), 고등어, 꽁치, 갈치, 두부, 콩비지\n"
+        text += "- 고지방 어육류: 소갈비, 뱀장어, 유부, 치즈\n"
+        text += "- 채소군: 무, 호박, 콩나물, 고사리, 버섯, 김, 미역, 다시마, 도라지, 연근, 당근\n"
+        text += "- 지방군/우유/과일: 들기름, 올리브유, 우유, 두유 / 배, 매실, 자두, 살구\n\n"
+        text += "🏥 태음인 체질 증상 및 질환\n"
+        text += "특성: 간대폐소(肝大肺小). 흡수 기능은 강하나 발산과 배출 기능이 약해 노폐물이 잘 쌓이고, 호흡기와 심혈관이 취약함.\n"
+        text += "- 노화 (대사/순환): 혈액순환 장애, 고혈압, 당뇨, 고지혈증, 협심증, 중풍, 치매, 비만, 간암, 대장암\n"
+        text += "- 수험생/청소년: 지구력은 좋으나 비만하기 쉽고, 호흡기 약화로 인한 집중력 저하.\n"
+        text += "- 여성: 다낭성 난소 증후군, 비만형 생리불순.\n"
+        text += "- 일반 (간/장): 지방간, 변비, 과민성 대장(설사보다는 가스 참).\n\n"
+        text += "🥗 추천 약재·음식·영양제\n"
+        text += "- 한약재: 녹용(기혈 보강, 소아 성장 및 노인 항노화), 맥문동·길경(폐/기관지 윤택, 가래 배출), 갈근(목덜미 긴장 해소), 의이인(율무, 습담 제거 및 다이어트)\n"
+        text += "- 음식: 소고기(양질의 단백질), 무/배/연근(폐 기운 돕고 소화 촉진), 호두/잣(뇌 기능 활성화 및 변비 예방)\n"
+        text += "- 영양제: 오메가-3(혈행 개선, 고지혈증 예방), 비타민 A/D(호흡기 점막 보호 및 면역력), 밀크씨슬(간의 해독 작용 보조)\n\n"
+        text += "🌟 태음인으로 추정되는 유명인\n"
+        text += "※ 알림: 이 내용은 인물의 대중적 이미지와 캐릭터를 바탕으로 한 재미 위주의 가상 분류입니다. 실제 의학적 체질 진단과는 다를 수 있으니 가볍게 즐겨주세요!\n\n"
+        text += "\"듬직하고 끈기 있는 평화주의자\"\n"
+        text += "한국인에게 가장 많은 체질입니다. 골격이 굵고 듬직하며, 인내심과 끈기가 강합니다. 변화보다는 안정을 추구하며, 겉은 유해 보이나 속은 단단한 외유내강형입니다.\n\n"
+        text += "- 배우: 마동석, 송강호, 최민식 (중후하고 묵직한 연기, 푸근한 인상 뒤의 파워)\n"
+        text += "- 가수: 송창식, 양희은, 성시경 (뱃속 깊은 곳에서 울리는 웅장하고 편안한 성량)\n"
+        text += "- K-pop 아이돌: 창빈(Stray Kids), 휴닝카이(TXT), 신동 (탄탄한 피지컬과 팀의 중심을 잡는 무게감)\n"
+        text += "- 삼국지 장군: 유비 (넓은 덕으로 사람을 품는 인내심, 묵묵히 때를 기다리는 신중함)\n"
+        text += "- 우리나라 위인: 세종대왕 (고기를 좋아하고 앉아서 연구하기를 즐김), 김구\n"
+        text += "- 역사 속 위인: 윈스턴 처칠 (뚝심 있는 리더십, 풍채)\n"
+        text += "- 동물: 곰, 황소, 코끼리 (우직하고 힘이 세며 지구력이 좋음)\n"
+
+    elif code == 'SE':
+        text += "📋 소음인 상세 가이드\n\n"
+        text += "1. 소음인의 특징\n"
+        text += "몸이 찬 편입니다.\n"
+        text += "전반적인 체력이 약한 편입니다.\n"
+        text += "소화기의 기능이 약해지기 쉽습니다.\n\n"
+        text += "🚨 건강이 안 좋아지면 나타나는 증상\n"
+        text += "전신: 무리를 하지 않았는데도 피로감이 지속되고, 아침에 일어나기 힘듭니다.\n"
+        text += "소화: 식욕이 떨어지고 소화가 잘 안 되며, 배에 가스가 찹니다.\n"
+        text += "배설: 설사를 자주 하거나, 대변이 가늘면서 시원하지 않습니다.\n"
+        text += "기타: 손발과 배가 차고, 특별한 이유 없이 마음이 늘 불안합니다.\n\n"
+        text += "💡 평소 생활 실천 사항\n"
+        text += "보온: 항상 몸을 따뜻하게 합니다.\n"
+        text += "휴식: 과로를 피하고 적절한 휴식이 필요합니다.\n"
+        text += "식사: 규칙적인 식사가 중요하며, 따뜻한 성질의 음식이나 약간의 자극성 있는 조미료가 좋습니다.\n\n"
+        text += "🍽️ 식품군별 권장 음식 상세\n"
+        text += "- 곡류군: 백미, 차조, 찹쌀, 감자, 옥수수 / (떡, 누룽지)\n"
+        text += "- 저지방 어육류: 닭고기(껍질/기름 제거), 명태, 조기, 도미, 대구, 민어, 농어, 가자미, 멸치\n"
+        text += "- 중지방 어육류: 삼치, 갈치, 장어, 민어, 도루묵\n"
+        text += "- 고지방 어육류: 닭고기(껍질 포함), 개고기, 뱀장어\n"
+        text += "- 채소군: 깻잎, 냉이, 시금치, 양배추, 브로콜리, 마늘, 파, 고추, 양파, 부추, 쑥\n"
+        text += "- 지방군/우유/과일: 들깨, 참기름, 산양유 / 사과, 귤, 토마토, 복숭아, 대추, 유자\n\n"
+        text += "🏥 소음인 체질 증상 및 질환\n"
+        text += "특성: 신대비소(腎大脾小). 신장/생식기 기능은 좋으나 위장이 차고 소화력이 약함. 몸이 차고(냉증), 예민하며 체력이 약해지기 쉬움.\n"
+        text += "- 노화 (기력/소화): 소화 기능 저하, 근감소증, 수족냉증, 기력 감퇴, 위암\n"
+        text += "- 수험생/청소년: 체력 부족, 시험 불안, 예민성 복통.\n"
+        text += "- 여성: 심한 생리통(냉증), 빈혈, 수족냉증.\n"
+        text += "- 일반 (면역/장): 잦은 감기, 만성 설사, 멀미.\n\n"
+        text += "🥗 추천 약재·음식·영양제\n"
+        text += "- 한약재: 인삼/홍삼(원기 회복, 소화기 강화, 면역력), 당귀·천궁(혈액 생성 및 순환, 생리통/빈혈), 계피/생강(뱃속을 따뜻하게 함), 쑥(자궁을 따뜻하게 함)\n"
+        text += "- 음식: 닭고기(따뜻한 성질의 단백질), 마늘/고추/부추(신진대사 촉진 및 체온 유지), 꿀/대추(위장 편안 및 신경 안정)\n"
+        text += "- 영양제: 비타민 B군(에너지 대사, 만성 피로), 철분/엽산(빈혈 예방), 프로폴리스(따뜻한 성질의 천연 항생제, 면역력)\n\n"
+        text += "🌟 소음인으로 추정되는 유명인\n"
+        text += "※ 알림: 이 내용은 인물의 대중적 이미지와 캐릭터를 바탕으로 한 재미 위주의 가상 분류입니다. 실제 의학적 체질 진단과는 다를 수 있으니 가볍게 즐겨주세요!\n\n"
+        text += "\"섬세하고 완벽을 추구하는 전략가\"\n"
+        text += "이목구비가 오밀조밀하고 단정합니다. 꼼꼼하고 내성적이며 완벽주의 성향이 있습니다. 체력이 약해 쉽게 피로를 느끼지만, 논리적이고 세심한 감수성을 가졌습니다.\n\n"
+        text += "- 배우: 박보검, 정유미, 한석규 (부드럽고 지적인 이미지, 섬세한 감정 연기)\n"
+        text += "- 가수: 심수봉, 김광석, 아이유(IU) (마음을 파고드는 애절한 감성과 철저한 자기관리)\n"
+        text += "- K-pop 아이돌: 장원영(IVE), 민지(NewJeans), 설윤(NMIXX) (청순하고 고전적인 미인상, 차분하고 지적인 이미지)\n"
+        text += "- 삼국지 장군: 제갈량 (뛰어난 지략, 돌다리도 두들겨 보는 신중함과 꼼꼼함)\n"
+        text += "- 우리나라 위인: 이순신 장군 (철저한 기록과 신중한 전략), 퇴계 이황\n"
+        text += "- 역사 속 위인: 링컨 (사색적이고 신중하며 마른 체형)\n"
+        text += "- 동물: 사슴, 고양이 (예민하고 깔끔하며 독립적임)\n"
+    
+    return text
+
+# [사상체질] 추천 처방 로직
+def get_recommendation(constitution, symptoms):
+    pain = symptoms.get('pain')
+    sweat = symptoms.get('sweat')
+    stool = symptoms.get('stool')
+    
+    if constitution == 'SE':
+        if pain == "몸살 기운 (으슬으슬 춥고 열이 남)":
+            if sweat == "땀이 거의 나지 않는다":
+                return {"condition": "소음인 울광체질 (내부 양기가 갇힌 상태)", "desc": "대변이 잘 나오지 않거나 몸에 열감이 느껴지며, 심할 경우 불안함이나 조급함이 나타날 수 있습니다.", "prescription": "천궁계지탕, 궁귀향소산, 향부자팔물탕 등"}
+            else: 
+                return {"condition": "소음인 망양체질 (양기가 허약해 땀으로 빠지는 상태)", "desc": "식은땀이 잘 나며 잘 지치고 피로를 자주 느낄 수 있습니다", "prescription": "황기계지탕, 보중익기탕, 승양익기탕 등"}
+        else: 
+            if stool == "설사를 하거나 묽다":
+                return {"condition": "소음인 태음병 (속이 냉하고 배탈이 잦음)", "desc": "배가 차갑고 복통 또는 설사가 잘 나며, 소화 기능 약합니다.", "prescription": "백하오이중탕, 곽향정기산 등"}
+            else:
+                return {"condition": "소음인 태음병 (위장이 차갑고 막힘)", "desc": "명치 밑이 답답하고 소화가 안 됩니다.", "prescription": "곽향정기산, 향사양위탕 등"}
+
+    elif constitution == 'SY':
+        if pain == "몸살 기운 (으슬으슬 춥고 열이 남)":
+            if stool == "설사를 하거나 묽다":
+                return {"condition": "소양인 망음병 (겉은 열, 속은 냉)", "desc": "위로는 열이나고 답답하지만, 아래는 차거나 설사가 나기 쉽고 몸이 피곤합니다.", "prescription": "형방지황탕, 저령차전자탕, 활석고삼탕 등"}
+            else: 
+                return {"condition": "소양인 소양상풍병 (열기가 갇힘)", "desc": "머리가 아프고 몸에 열이 나며, 가슴이 답답하고 아픈 증상으로 발전하기 쉽습니다.", "prescription": "형방패독산, 형방도적산, 형방사백산 등"}
+        else: 
+            if stool == "변비가 있거나 잘 안 나온다":
+                return {"condition": "소양인 흉격열병 (가슴에 열이 꽉 참)", "desc": "변비가 심하고 얼굴이 붉어지며 갈증을 자주 느킵니다.", "prescription": "형방사백산, 지황백호탕, 양격산화탕 등"}
+            else:
+                return {"condition": "소양인 음허오열병 (신장 기운 약화)", "desc": "오후에 얼굴에 열이 오르거나 허리/다리가 약해진 느낌이에요.", "prescription": "독활지황탕, 숙지황고삼탕 등"}
+
+    elif constitution == 'TE':
+        if pain == "몸살 기운 (으슬으슬 춥고 열이 남)":
+            return {"condition": "태음인 위완한병 (폐/대장이 차가움)", "desc": "목이 건조하고 답답하며, 가슴이 두근거리거나, 땀은 나지 않으면서 몸이 무겁게 느껴집니다.", "prescription": "태음조위탕, 조위승청탕, 녹용대보탕 등"}
+        else: 
+            return {"condition": "태음인 간열병 (간에 열이 많음)", "desc": "얼굴이 붉고 눈이 아프거나, 갈증이 심하고 변비가 잘 생깁니다.", "prescription": "갈근해기탕, 열다한소탕, 청폐사간탕 등"}
+
+    elif constitution == 'TY':
+        return {"condition": "태양인 특이 병증", "desc": "다리에 힘이 빠지거나(해역), 음식을 먹고 토하는 증상(열격)을 주의해야 해요.", "prescription": "오가피장척탕, 미후등식장탕"}
+    
+    return {"condition": "정보 부족", "desc": "", "prescription": ""}
+
+def go_shortcut(selected_type):
+    if 'name' not in st.session_state['user_info']:
+        st.session_state['user_info'] = {
+            'name': '방문자', 'birth': '-', 
+            'height': '-', 'weight': '-', 'email': '',
+            'meds': '-', 'history': '-', 'comment': '체질 바로보기 선택'
+        }
+    
+    fake_scores = {'TY': 20, 'SY': 20, 'TE': 20, 'SE': 20}
+    fake_scores[selected_type] = 100.0
+    
+    fake_symptoms = {}
+    if selected_type == 'SE':
+        fake_symptoms = {'pain': "몸살 기운 (으슬으슬 춥고 열이 남)", 'sweat': "땀이 거의 나지 않는다", 'stool': "설사를 하거나 묽다"}
+    elif selected_type == 'SY':
+        fake_symptoms = {'pain': "속 문제", 'stool': "변비가 있거나 잘 안 나온다", 'sweat': "보통"}
+    elif selected_type == 'TE':
+        fake_symptoms = {'pain': "몸살 기운 (으슬으슬 춥고 열이 남)", 'sweat': "보통", 'stool': "보통"}
+    else: # TY
+        fake_symptoms = {'pain': "보통", 'sweat': "보통", 'stool': "보통"}
+        
+    rec = get_recommendation(selected_type, fake_symptoms)
+    
+    st.session_state['final_result'] = {
+        'code': selected_type,
+        'scores': fake_scores,
+        'rec': rec
+    }
+    st.session_state['step'] = 999
+    st.rerun()
+
+# ==========================================
+# [분석 및 이메일 전송 통합 함수]
+# ==========================================
+def analyze_and_send():
+    info = st.session_state['user_info']
+    
+    # 1. 사상체질 분석
+    raw_scores = {'TY': 0, 'SY': 0, 'TE': 0, 'SE': 0}
+    type_counts = {'TY': 0, 'SY': 0, 'TE': 0, 'SE': 0}
+    
+    for i, score in enumerate(st.session_state['answers_sasang']):
+        q_type = QUESTIONS_SASANG[i]['type']
+        raw_scores[q_type] += score
+        type_counts[q_type] += 1
+    
+    avg_scores = {k: (v / type_counts[k] if type_counts[k] > 0 else 0) for k, v in raw_scores.items()}
+    max_score = max(avg_scores.values())
+    result_types = [k for k, v in avg_scores.items() if v == max_score]
+    my_type_code = result_types[0] 
+    
+    recommendation = get_recommendation(my_type_code, st.session_state['symptom_answers'])
+    scores_str = ", ".join([f"{TYPE_MAP[k]}: {v:.1f}점" for k, v in avg_scores.items()])
+
+    # 2. 장부변증 분석 (추가된 부분)
+    jangbu_scores = {key: 0 for key in PATTERNS.keys()}
+    jangbu_max_scores = {key: 0 for key in PATTERNS.keys()}
+    
+    for q_text, mappings in QUESTION_MAP.items():
+        for m in mappings:
+            jangbu_max_scores[m['pattern']] += m['weight']
+            
+    for idx, ans_val in enumerate(st.session_state['answers_jangbu']):
+        if ans_val == 1:
+            q_text = UNIQUE_QUESTIONS_JANGBU[idx]
+            mappings = QUESTION_MAP[q_text]
+            for m in mappings:
+                jangbu_scores[m['pattern']] += m['weight']
+    
+    jangbu_results = []
+    threshold = 0.6
+    for pattern, score in jangbu_scores.items():
+        if jangbu_max_scores[pattern] > 0:
+            ratio = score / jangbu_max_scores[pattern]
+            if ratio >= threshold:
+                jangbu_results.append({
+                    'pattern': pattern,
+                    'ratio': ratio,
+                    'score': score,
+                    'max_score': jangbu_max_scores[pattern],
+                    'info': PATTERNS[pattern]
+                })
+    jangbu_results.sort(key=lambda x: x['ratio'], reverse=True)
+    
+    jangbu_txt = ""
+    if not jangbu_results:
+        jangbu_txt = "특이 소견 없음"
+    else:
+        for res in jangbu_results:
+            jangbu_txt += f"- {res['pattern']} : {res['ratio']*100:.1f}%\n"
+
+    # 3. 로그 취합
+    sasang_log = "\n".join(st.session_state['answers_log_sasang'])
+    sasang_log += f"\n[증상] Pain: {st.session_state['symptom_answers'].get('pain')}"
+    sasang_log += f"\n[증상] Sweat: {st.session_state['symptom_answers'].get('sweat')}"
+    sasang_log += f"\n[증상] Stool: {st.session_state['symptom_answers'].get('stool')}"
+    
+    jangbu_log = "\n".join([log for i, log in enumerate(st.session_state['answers_log_jangbu']) if st.session_state['answers_jangbu'][i] == 1])
+
+    # 4. 관리자 메일 전송
+    admin_body = f"""
+[관리자 알림] 디스코한의원 종합 문진 결과
+이름: {info['name']} ({info['birth']})
+이메일: {info.get('email', '미입력')}
+키/몸무게: {info.get('height','')}cm / {info.get('weight','')}kg
+
+[기본 정보]
+약: {info.get('meds','')}
+병력: {info.get('history','')}
+불편증상: {info.get('comment','')}
+
+=========================================
+1. 사상체질 진단 결과
+=========================================
+판정: {TYPE_MAP.get(my_type_code)}
+점수: {scores_str}
+
+[추천 병증 및 처방]
+병증: {recommendation['condition']}
+처방: {recommendation['prescription']}
+설명: {recommendation['desc']}
+
+=========================================
+2. 장부변증 진단 결과
+=========================================
+[감지된 주요 패턴]
+{jangbu_txt}
+
+[세부 내역]
+"""
+    for res in jangbu_results:
+        admin_body += f"\n[{res['pattern']}]\n"
+        admin_body += f"추천 처방: {res['info']['prescription']}\n"
+        admin_body += f"참고 문헌: {res['info']['reference']}\n"
+
+    admin_body += f"\n=========================================\n[설문 응답 로그]\n--- 사상체질 ---\n{sasang_log}\n\n--- 장부변증 ('예' 응답만) ---\n{jangbu_log}"
+
+    send_email_logic(RECEIVER_EMAIL, f"[관리자] {info['name']}님 종합 진단 결과", admin_body)
+
+    # 5. 사용자 메일 전송
+    user_email = info.get('email')
+    if user_email:
+        full_guide_text = get_full_guide_text(my_type_code)
+        user_body = f"""
+당신은 [{TYPE_MAP.get(my_type_code)}] 입니다!
+
+💡 닥터 제마의 한마디
+이 결과는 건강 관리를 돕는 가벼운 길잡이로만 활용해 주시고, 정확한 체질 감별과 건강 상담은 전문 지식을 갖춘 한의사와의 따뜻한 진료를 통해 확인해 보세요.
+
+📊 체질별 분석 점수
+{scores_str}
+
+---------------------------------------------------
+{full_guide_text}
+---------------------------------------------------
+
+[🔁 다시 검사하기 & 📢 공유하기]
+나의 체질을 확인하셨나요?
+가족이나 친구의 체질도 궁금하다면 아래 링크를 공유해주세요!
+
+👉 http://www.mysasang.com/
+
+※ 본 결과는 자가진단을 바탕으로 한 참고용이며, 정확한 의학적 진단과 처방은 한의원에 내원하여 상담받으시길 바랍니다.
+        """
+        send_email_logic(user_email, f"[{info['name']}님] 디스코 한의원 사상체질 진단 결과", user_body)
+
+    # 6. 세션 결과 저장
+    st.session_state['final_result'] = {
+        'code': my_type_code,
+        'scores': avg_scores,
+        'rec': recommendation
+    }
+
+# ==========================================
+# 화면 렌더링 함수
+# ==========================================
+def go_next():
+    st.session_state['step'] += 1
+
+def go_prev():
+    if st.session_state['step'] > 0:
+        st.session_state['step'] -= 1
+
+def main():
+    current_step = st.session_state['step']
+    
+    # ----------------------------------
+    # STEP 0: 기본 정보 입력
+    # ----------------------------------
+    if current_step == 0:
+        st.markdown("<h1 style='text-align: center;'>디스코한의원 종합 문진표</h1>", unsafe_allow_html=True)
+        st.info("본 프로그램은 사상체질병증 한의표준임상진료지침을 준수하여 40개 문항으로 제작되었습니다. 꼼꼼하게 읽고 작성해주십시오.")
+        
+        with st.form("info_form"):
+            name = st.text_input("이름 (필수)", placeholder="홍길동")
+            birth = st.text_input("생년월일 (필수)", placeholder="예: 1980.01.01")
+            email = st.text_input("이메일 (선택)", placeholder="결과지를 이메일로 받으시려면 입력해주세요.")
+            
+            col1, col2 = st.columns(2)
+            with col1: height = st.text_input("키 (cm)", placeholder="175")
+            with col2: weight = st.text_input("몸무게 (kg)", placeholder="70")
+            
+            meds = st.text_input("복용 중인 약 (선택)")
+            history = st.text_input("과거 병력 (선택)")
+            comment = st.text_area("증상 또는 원장님께 하고 싶은 말씀 (선택)", height=80)
+            
+            if st.form_submit_button("진단 시작하기", use_container_width=True):
+                if not name or not birth:
+                    st.error("이름과 생년월일은 필수입니다.")
+                else:
+                    st.session_state['user_info'] = {
+                        'name': name, 'birth': birth, 'email': email, 'height': height,
+                        'weight': weight, 'meds': meds, 'history': history, 'comment': comment
+                    }
+                    go_next()
+                    st.rerun()
+
+        st.write("")
+        st.markdown("---")
+        st.subheader("⚡ 체질별 결과 바로보기 (설문 건너뛰기)")
+        st.caption("아래 버튼을 누르면 설문 없이 해당 체질의 상세 가이드와 처방 예시를 바로 확인합니다.")
+        
+        if name:
+             st.session_state['user_info']['name'] = name
+             st.session_state['user_info']['birth'] = birth
+
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            if st.button("☀️ 태양인", use_container_width=True):
+                go_shortcut('TY')
+        with c2:
+            if st.button("🔥 소양인", use_container_width=True):
+                go_shortcut('SY')
+        with c3:
+            if st.button("🌲 태음인", use_container_width=True):
+                go_shortcut('TE')
+        with c4:
+            if st.button("💧 소음인", use_container_width=True):
+                go_shortcut('SE')
+
+
+    # ----------------------------------
+    # STEP 1 ~ A: 사상체질 질문 (1 ~ 37)
+    # ----------------------------------
+    elif 1 <= current_step <= TOTAL_SASANG_Q:
+        idx = current_step - 1
+        q_data = QUESTIONS_SASANG[idx]
+        
+        progress = idx / TOTAL_STEPS
+        st.progress(progress)
+        st.caption(f"문진 진행 중... ({current_step}/{TOTAL_STEPS})")
+        
+        st.markdown(f"<div class='question-text'>Q{current_step}.<br>{q_data['q']}</div>", unsafe_allow_html=True)
+        
+        default_idx = st.session_state['answers_sasang'][idx]
+        choice = st.radio("답변을 선택하세요", OPTIONS_SASANG, index=default_idx, horizontal=False, label_visibility="collapsed", key=f"sq_{idx}")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("⬅️ 이전", use_container_width=True):
+                go_prev()
+                st.rerun()
+        with col2:
+            if st.button("다음 ➡️", use_container_width=True):
+                score_val = OPTIONS_SASANG.index(choice)
+                st.session_state['answers_sasang'][idx] = score_val
+                st.session_state['answers_log_sasang'][idx] = f"Q(사상){current_step}. {q_data['q']} : {choice}"
+                go_next()
+                st.rerun()
+
+    # ----------------------------------
+    # STEP A+1 ~ A+3: 증상 질문
+    # ----------------------------------
+    elif TOTAL_SASANG_Q < current_step <= TOTAL_SASANG_Q + TOTAL_SASANG_SYM:
+        offset = current_step - TOTAL_SASANG_Q
+        st.progress(current_step / TOTAL_STEPS)
+        st.caption(f"증상 상세 확인 ({current_step}/{TOTAL_STEPS})")
+
+        if offset == 1:
+            st.markdown("<div class='question-text'>Q. 아플 때 주로 어떤 느낌인가요?</div>", unsafe_allow_html=True)
+            ans = st.radio("통증 유형", ["몸살 기운 (으슬으슬 춥고 열이 남)", "속 문제 (소화가 안 되고, 가슴이 답답하거나 배가 아픔)"], key="sym_pain", horizontal=False)
+            save_key = 'pain'
+        elif offset == 2:
+            st.markdown("<div class='question-text'>Q. 아플 때 땀은 어떻게 나나요?</div>", unsafe_allow_html=True)
+            ans = st.radio("땀 유형", ["땀이 거의 나지 않는다", "식은땀이 나거나 땀이 축축하게 난다"], key="sym_sweat", horizontal=False)
+            save_key = 'sweat'
+        elif offset == 3:
+            st.markdown("<div class='question-text'>Q. 대변 상태는 어떤가요?</div>", unsafe_allow_html=True)
+            ans = st.radio("대변 유형", ["변비가 있거나 잘 안 나온다", "설사를 하거나 묽다", "평소와 비슷하다(보통)"], key="sym_stool", horizontal=False)
+            save_key = 'stool'
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("⬅️ 이전", use_container_width=True):
+                go_prev()
+                st.rerun()
+        with col2:
+            if st.button("다음 ➡️", use_container_width=True):
+                st.session_state['symptom_answers'][save_key] = ans
+                go_next()
+                st.rerun()
+
+    # ----------------------------------
+    # STEP B ~ END: 장부변증 질문 (복구됨)
+    # ----------------------------------
+    elif TOTAL_SASANG_Q + TOTAL_SASANG_SYM < current_step <= TOTAL_STEPS:
+        base_idx = TOTAL_SASANG_Q + TOTAL_SASANG_SYM
+        idx = current_step - base_idx - 1
+        q_text = UNIQUE_QUESTIONS_JANGBU[idx]
+
+        st.progress(current_step / TOTAL_STEPS)
+        st.caption(f"상세 문진 진행 중... ({current_step}/{TOTAL_STEPS})")
+        
+        st.markdown(f"<div class='question-text'>Q{current_step}.<br>{q_text}</div>", unsafe_allow_html=True)
+        
+        default_idx = st.session_state['answers_jangbu'][idx]
+        choice = st.radio("해당합니까?", OPTIONS_JANGBU, index=default_idx, horizontal=True, label_visibility="collapsed", key=f"jq_{idx}")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("⬅️ 이전", use_container_width=True):
+                go_prev()
+                st.rerun()
+        with col2:
+            btn_text = "다음 ➡️" if current_step < TOTAL_STEPS else "제출하기"
+            if st.button(btn_text, use_container_width=True):
+                score_val = OPTIONS_JANGBU.index(choice)
+                st.session_state['answers_jangbu'][idx] = score_val
+                st.session_state['answers_log_jangbu'][idx] = f"Q(장부){current_step}. {q_text} : {choice}"
+                
+                if current_step < TOTAL_STEPS:
+                    go_next()
+                    st.rerun()
+                else:
+                    # 최종 제출 처리
+                    with st.spinner("결과를 분석하여 전송 중입니다..."):
+                        analyze_and_send()
+                    st.session_state['step'] = 999
+                    st.rerun()
+
+    # ----------------------------------
+    # [STEP 999] 통합 결과 화면
+    # ----------------------------------
+    elif current_step == 999:
+        res = st.session_state['final_result']
+        my_code = res['code']
+        scores = res['scores']
+
+        st.balloons()
+        
+        # [안내 문구 추가]
+        if st.session_state['user_info'].get('email'):
+            st.success(f"📧 입력하신 이메일({st.session_state['user_info']['email']})로 상세 결과 가이드를 보내드렸습니다.")
+
+        # 점수 정렬 (내림차순)
+        sorted_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+        max_score = sorted_scores[0][1]
+        
+        # [핵심 변경] 1등과 점수 차이가 0.2 이하인 모든 체질 찾기 (2등, 3등, 4등 포함)
+        close_candidates = []
+        close_candidates.append(sorted_scores[0]) # 1등은 무조건 포함
+        
+        for i in range(1, 4):
+            diff = max_score - sorted_scores[i][1]
+            if diff <= 0.2:
+                close_candidates.append(sorted_scores[i])
+            else:
+                # 정렬되어 있으므로, 차이가 0.2보다 커지는 순간 뒤쪽은 볼 필요 없음
+                break
+        
+        # 2개 이상이 근소한 차이인 경우
+        if len(close_candidates) > 1:
+            names = [TYPE_MAP[c[0]] for c in close_candidates]
+            title_text = ", ".join(names)
+            st.title(f"🎉 [{title_text}] 성향이 비슷하게 나왔습니다")
+            
+            # 그룹 내 최대 차이 계산 (1등과 꼴찌)
+            max_diff_in_group = max_score - close_candidates[-1][1]
+            
+            st.warning(f"📢 **알림:** 상위 {len(close_candidates)}개 체질의 점수 차이가 **{max_diff_in_group:.1f}점 이내**로 매우 근소합니다.\n\n정확히 체질을 알고 싶으시다면 원장님과 더 상담해보세요.")
+            
+        else:
+            # 기존 단독 우승 메시지
+            my_name = TYPE_MAP[my_code]
+            st.title(f"🎉 당신은 [{my_name}] 입니다!")
+
+        # [요청사항 적용 1] 닥터 제마의 한마디 (결과 상단 배치)
+        st.info("""
+        💡 **닥터 제마의 한마디**
+        
+        이 결과는 건강 관리를 돕는 가벼운 길잡이로만 활용해 주시고, 정확한 체질 감별과 건강 상담은 전문 지식을 갖춘 한의사와의 따뜻한 진료를 통해 확인해 보세요.
+        """)
+
+        st.write("### 📊 체질별 분석 점수")
+        
+        # 1. 상단 요약 박스 (순서: TY -> TE -> SY -> SE)
+        st.markdown(f"""
+            <div class="constitution-container">
+                <div class="constitution-box">
+                    <span class="constitution-label">태양인</span>
+                    <span class="constitution-score">{scores.get('TY', 0):.1f}점</span>
+                </div>
+                <div class="constitution-box">
+                    <span class="constitution-label">태음인</span>
+                    <span class="constitution-score">{scores.get('TE', 0):.1f}점</span>
+                </div>
+                <div class="constitution-box">
+                    <span class="constitution-label">소양인</span>
+                    <span class="constitution-score">{scores.get('SY', 0):.1f}점</span>
+                </div>
+                <div class="constitution-box">
+                    <span class="constitution-label">소음인</span>
+                    <span class="constitution-score">{scores.get('SE', 0):.1f}점</span>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        st.write("") 
+        
+        # 2. 하단 막대 차트 순서 고정 (태양 -> 태음 -> 소양 -> 소음)
+        ordered_keys = ['TY', 'TE', 'SY', 'SE']
+        ordered_names = [TYPE_MAP[k] for k in ordered_keys]
+        
+        chart_data = {
+            '체질': ordered_names,
+            '점수': [scores.get(k, 0) for k in ordered_keys]
+        }
+        chart_df = pd.DataFrame(chart_data)
+        
+        # [핵심 수정] 범주형(Categorical) 타입을 사용하여 정렬 순서를 강제로 고정합니다.
+        chart_df['체질'] = pd.Categorical(chart_df['체질'], categories=ordered_names, ordered=True)
+        
+        # 차트 출력 (정렬된 상태 유지)
+        st.bar_chart(chart_df.set_index('체질'))
+        
+        st.markdown('<div class="page-break"></div>', unsafe_allow_html=True)
+        st.markdown("---")
+        
+        # =========================================================
+        # 상세 건강 가이드 출력 (수정됨)
+        # =========================================================
+        
+        if my_code == 'TY': # 태양인
+            st.header("📋 태양인 상세 가이드")
+            
+            st.markdown("""
+            **1. 태양인의 특징**
+            * 에너지를 축적하는 기능은 약하고, 발산/소모시키는 기능은 강합니다.
+            * 머리와 목덜미가 발달한 반면, 허리나 하체가 빈약한 편입니다.
+            """)
+            st.subheader("🚨 건강이 안 좋아지면 나타나는 증상")
+            st.warning("""
+            * **신체:** 쉽게 몸살이 나고, 하체가 쉽게 피로하여 오래 걷기 힘듭니다.
+            * **배설:** 소변 양과 횟수가 줄거나, 대변이 염소똥처럼 굳어집니다.
+            * **입/소화:** 입 안에 맑은 침이나 거품이 고이고, 구역질을 합니다.
+            * **정서:** 매사에 조급해지고 화가 잘 납니다.
+            """)
+            st.info("""
+            **💡 평소 생활 실천 사항**
+            1. **식사:** 매운 자극성 음식, 고지방 음식을 피하고 담백한 음식/해물/채소가 좋습니다.
+            2. **운동:** 과격한 운동은 피하고, 허리/하체 근력 강화 운동을 하세요.
+            3. **마음:** 조급해하지 말고 여유를 가지며, 원만한 인간관계를 유지하세요.
+            """)
+
+            st.subheader("🍽️ 식품군별 권장 음식 상세")
+            st.markdown("""
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>권장 음식</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>곡류군</td><td>메밀(국수, 묵, 밥) / (보리, 녹두, 팥)</td></tr>
+                <tr><td>저지방 어육류</td><td>굴, 새우, 게, 오징어, 문어, 전복, 조개, 해삼, 홍합 / (흰살생선)</td></tr>
+                <tr><td>중지방 어육류</td><td>(사용 가능) 고등어, 꽁치, 장어</td></tr>
+                <tr><td>고지방 어육류</td><td>(해당 없음 / 육류는 피하는 것이 좋음)</td></tr>
+                <tr><td>채소군</td><td>상추, 깻잎, 배추, 오이, 가지, 시금치, 우엉, 숙주나물, 죽순</td></tr>
+                <tr><td>지방군/우유/과일</td><td>참깨 / 포도, 머루, 다래, 감, 키위, 파인애플, 오렌지</td></tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            st.subheader("🏥 태양인 체질 증상 및 질환")
+            st.markdown("""
+            **특성:** 폐대간소(肺大肝小). 폐 기능은 강하나 간 기능이 매우 약함. 기운이 위로 솟구쳐 하체가 약해지기 쉽고 구토 증상이 잦을 수 있음. (가장 드문 체질)
+
+            * **노화 (근골격):** 하체 무력감, 다리에 힘이 풀림, 삼킴 장애(열격), 면역계 질환, 마비 질환
+            * **수험생/청소년:** 독창적이나 화를 참지 못함.
+            * **여성:** 원인 불명의 불임, 심한 입덧.
+            * **일반 (간/피부):** 약물 과민 반응(간 해독력 저하), 아토피 등 피부 질환.
+
+            ### 🥗 추천 약재·음식·영양제
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>추천 목록 및 효능 요약</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-weight:bold;">한약재</td>
+                    <td>
+                        오가피: 근골격을 튼튼하게 하여 하체 무력감 보강.<br>
+                        모과: 근육의 경직을 풀고 위장 편안하게 함.<br>
+                        다래(미후도): 위로 치솟는 기운을 내리고 열을 식힘.
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">음식</td>
+                    <td>
+                        해산물(문어, 조개, 게): 타우린이 간 기능을 돕고 피로 회복.<br>
+                        메밀: 몸의 열을 내리고 소화를 도움.<br>
+                        포도, 키위: 진액을 생성하고 피로를 풂.
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">영양제</td>
+                    <td>
+                        클로렐라/스피루리나: 엽록소가 풍부한 해조류로 간 해독 및 항산화.<br>
+                        MSM (식이유황): 해독 작용 및 관절/연골 건강 보조.<br>
+                        유산균: 육식보다는 채식 위주의 식단과 함께 장 건강 관리.
+                    </td>
+                </tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            st.header("🌟 태양인으로 추정되는 유명인")
+            st.caption("※ 알림: 이 내용은 인물의 대중적 이미지와 캐릭터를 바탕으로 한 재미 위주의 가상 분류입니다. 실제 의학적 체질 진단과는 다를 수 있으니 가볍게 즐겨주세요!")
+            st.markdown("""
+            **"카리스마 넘치는 직관의 리더"**
+            
+            태양인은 만 명 중 한두 명 있을 정도로 매우 드문 체질입니다. 강한 추진력과 카리스마, 남다른 직관력을 가졌으며, 남들이 범접하기 힘든 독보적인 아우라를 뿜어냅니다.
+            
+            * **배우:** 차승원, 김윤석 (강렬한 인상과 화면을 장악하는 남성미)
+            * **가수:** 나훈아, 임재범 (폭발적인 성량과 무대 전체를 지배하는 쇼맨십)
+            * **K-pop 아이돌:** 지드래곤(GD), 카리나(aespa), 전소연((G)I-DLE) (비현실적인 비주얼과 천재적인 프로듀싱 능력, 리더십)
+            * **삼국지 장군:** **관우** (천하를 호령하는 위엄과 굽히지 않는 충절, 긴 수염을 휘날리는 압도적 풍채)
+            * **우리나라 위인:** 이제마 (사상의학의 창시자), 박정희 (강력한 추진력)
+            * **역사 속 위인:** 나폴레옹 (세상을 바꾸려는 강력한 영웅 심리)
+            * **동물:** 사자, 용, 독수리 (백수의 왕, 하늘의 제왕처럼 비범함)
+            """)
+
+        elif my_code == 'SY': # 소양인
+            st.header("📋 소양인 상세 가이드")
+            
+            st.markdown("""
+            **1. 소양인의 특징**
+            * 몸에 열이 많습니다.
+            * 신경이 예민하고, 피부, 장, 방광 등이 과민한 편입니다.
+            """)
+            st.subheader("🚨 건강이 안 좋아지면 나타나는 증상")
+            st.warning("""
+            * **수면/정서:** 잠들기 어렵고 자주 깨며, 마음이 조급하고 불안합니다.
+            * **배설:** 소변을 자주 보거나 색이 진하며, 변비나 설사가 잦습니다.
+            * **신체:** 얼굴이나 피부 트러블이 잦고, 입이 마르며 갈증이 납니다.
+            * **소화:** 가슴이 답답하고 속이 쓰리거나 구역질을 합니다.
+            """)
+            st.info("""
+            **💡 평소 생활 실천 사항**
+            1. **수면/마음:** 충분한 수면을 취하고, 매사에 여유를 가지려 노력하세요.
+            2. **식사:** 천천히 식사하며, 서늘한 성질의 음식/해물/채소가 좋습니다.
+            3. **피할 것:** 맵고 짠 음식, 성질이 더운 음식을 피하세요.
+            4. **운동:** 하체를 강화시켜 주는 운동(등산, 자전거 등)이 좋습니다.
+            """)
+
+            st.subheader("🍽️ 식품군별 권장 음식 상세")
+            st.markdown("""
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>권장 음식</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>곡류군</td><td>보리, 팥, 녹두 / (메밀, 고구마, 토란)</td></tr>
+                <tr><td>저지방 어육류</td><td>돼지고기(살코기), 오리고기, 복어, 굴, 새우, 오징어, 낙지, 조개, 게, 해삼</td></tr>
+                <tr><td>중지방 어육류</td><td>돼지고기(안심), 계란 / (두부, 고등어, 꽁치)</td></tr>
+                <tr><td>고지방 어육류</td><td>삼겹살, 족발, 돼지갈비, 베이컨</td></tr>
+                <tr><td>채소군</td><td>오이, 가지, 배추, 상추, 우엉, 숙주나물, 죽순</td></tr>
+                <tr><td>지방군/우유/과일</td><td>참깨, 참기름, 우유 / 딸기, 수박, 바나나, 참외, 메론, 키위</td></tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            st.subheader("🏥 소양인 체질 증상 및 질환")
+            st.markdown("""
+            **특성:** 비대신소(脾大腎小). 소화력은 좋으나 신장/방광/자궁이 약함. 상체로 열이 잘 오르고(상열), 하체가 약하며 진액(수분)이 부족하기 쉬움.
+
+            * **노화 (비뇨/골격):** 전립선 비대, 요실금, 골다공증, 안구건조, 뇌출혈, 심근경색
+            * **수험생/청소년:** 성조숙증 주의, ADHD 성향(산만함), 열로 인한 두통.
+            * **여성:** 질 건조증, 방광염, 상열감 심한 갱년기.
+            * **일반 (위장/탈모):** 스트레스성 위염(속쓰림), 정수리 열로 인한 탈모.
+
+            ### 🥗 추천 약재·음식·영양제
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>추천 목록 및 효능 요약</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-weight:bold;">한약재</td>
+                    <td>
+                        숙지황: 신장 기운 보강(생리, 뼈), 진액 보충(안구건조).<br>
+                        구기자·산수유: 하체 강화, 정력 증진, 눈 피로 해소.<br>
+                        복령: 소변을 잘 나오게 하고 마음을 안정시킴(불면증).
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">음식</td>
+                    <td>
+                        돼지고기, 오리고기: 찬 성질로 몸의 화기를 내리고 보양.<br>
+                        수박, 참외, 오이: 천연 이뇨작용 및 체내 열 배출.<br>
+                        굴, 전복: 바다의 음기를 머금어 신장 보강 및 피부 미용.
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">영양제</td>
+                    <td>
+                        알로에: 위장의 열을 내리고 배변 활동 보조.<br>
+                        마그네슘: 신경 과흥분 조절(불면, 눈떨림) 및 근육 이완.<br>
+                        콜라겐: 진액 부족으로 인한 피부 노화 및 관절 건조 예방.
+                    </td>
+                </tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
+
+            st.markdown("---")
+            st.header("🌟 소양인으로 추정되는 유명인")
+            st.caption("※ 알림: 이 내용은 인물의 대중적 이미지와 캐릭터를 바탕으로 한 재미 위주의 가상 분류입니다. 실제 의학적 체질 진단과는 다를 수 있으니 가볍게 즐겨주세요!")
+            st.markdown("""
+            **"재치 만점, 날렵한 분위기 메이커"**
+            
+            성격이 급하지만 뒤끝이 없고, 솔직담백하며 재치와 유머가 넘칩니다. 상체가 발달하고 하체가 약한 편이며, 톡톡 튀는 센스로 주변을 즐겁게 만듭니다.
+            
+            * **배우:** 김혜수, 전지현, 이병헌 (시원시원한 이목구비와 당당하고 솔직한 매력)
+            * **가수:** 이선희, 윤수일, 싸이(PSY) (작은 체구에서 나오는 폭발적 고음과 열정적인 에너지)
+            * **K-pop 아이돌:** 백현(EXO), 안유진(IVE), 하니(NewJeans) (예능감 넘치는 씩씩한 에너지와 엉뚱한 장난기)
+            * **삼국지 장군:** **장비** (행동이 앞서는 불같은 성격, 호탕한 매력의 소유자)
+            * **우리나라 위인:** 다산 정약용 (호기심이 많고 다방면에 능통함)
+            * **역사 속 위인:** 스티브 잡스 (창의적이고 혁신적이나 성격이 급함)
+            * **동물:** 원숭이, 돌고래 (재주가 많고 날렵하며 사교적임)
+            """)
+
+        elif my_code == 'TE': # 태음인
+            st.header("📋 태음인 상세 가이드")
+            
+            st.markdown("""
+            **1. 태음인의 특징**
+            * 섭취한 에너지를 소모시키고 배설시키는 것이 취약합니다.
+            * 체구가 큰 편이고, 식욕과 위장기능이 좋아 비만해지기 쉽습니다.
+            """)
+            st.subheader("🚨 건강이 안 좋아지면 나타나는 증상")
+            st.warning("""
+            * **체중/식욕:** 살이 찌고, 배가 부른데도 자꾸 먹게 됩니다.
+            * **배설:** 대변이 굳거나 설사가 잦아지는 등 양상이 달라집니다.
+            * **신체:** 땀이 잘 나지 않거나, 상체로만 진땀이 많이 납니다. 아침에 얼굴/손발이 붓습니다.
+            * **피부:** 얼굴이 붉어지고 열감이 많으며, 피부 트러블이 잦습니다.
+            """)
+            st.info("""
+            **💡 평소 생활 실천 사항**
+            1. **관리:** 변비와 체중 증가를 항상 경계해야 합니다.
+            2. **식사:** 과식/폭식/야식을 피하고, 천천히 먹습니다. 식후 바로 눕지 마세요.
+            3. **운동:** 땀을 흘릴 정도의 유산소 운동(열량 소모 많은 운동)이 좋습니다.
+            """)
+            
+            st.subheader("🍽️ 식품군별 권장 음식 상세")
+            st.markdown("""
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>권장 음식</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>곡류군</td><td>현미, 율무, 콩, 고구마, 옥수수, 토란, 밤, 마, 잣, 호두, 땅콩</td></tr>
+                <tr><td>저지방 어육류</td><td>소고기(사태, 홍두깨), 대구, 조기, 명태, 민어, 오징어</td></tr>
+                <tr><td>중지방 어육류</td><td>소고기(등심, 안심), 고등어, 꽁치, 갈치, 두부, 콩비지</td></tr>
+                <tr><td>고지방 어육류</td><td>소갈비, 뱀장어, 유부, 치즈</td></tr>
+                <tr><td>채소군</td><td>무, 호박, 콩나물, 고사리, 버섯, 김, 미역, 다시마, 도라지, 연근, 당근</td></tr>
+                <tr><td>지방군/우유/과일</td><td>들기름, 올리브유, 우유, 두유 / 배, 매실, 자두, 살구</td></tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            st.subheader("🏥 태음인 체질 증상 및 질환")
+            st.markdown("""
+            **특성:** 간대폐소(肝大肺小). 흡수 기능은 강하나 발산과 배출 기능이 약해 노폐물이 잘 쌓이고, 호흡기와 심혈관이 취약함.
+
+            * **노화 (대사/순환):** 혈액순환 장애, 고혈압, 당뇨, 고지혈증, 협심증, 중풍, 치매, 비만, 간암, 대장암
+            * **수험생/청소년:** 지구력은 좋으나 비만하기 쉽고, 호흡기 약화로 인한 집중력 저하.
+            * **여성:** 다낭성 난소 증후군, 비만형 생리불순.
+            * **일반 (간/장):** 지방간, 변비, 과민성 대장(설사보다는 가스 참).
+
+            ### 🥗 추천 약재·음식·영양제
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>추천 목록 및 효능 요약</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-weight:bold;">한약재</td>
+                    <td>
+                        녹용: 기혈 보강, 소아 성장 및 노인 항노화의 핵심 약재.<br>
+                        맥문동·길경(도라지): 약한 폐/기관지를 윤택하게 하고 가래 배출.<br>
+                        갈근(칡): 목덜미 긴장을 풀고(수험생), 갱년기 열감 해소.<br>
+                        의이인(율무): 습담(노폐물) 제거, 다이어트 및 부종 완화.
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">음식</td>
+                    <td>
+                        소고기: 양질의 단백질 공급원.<br>
+                        무, 배, 연근: 폐 기운을 돕고 소화를 촉진.<br>
+                        호두, 잣: 뇌 기능 활성화(치매/수험생) 및 변비 예방.
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">영양제</td>
+                    <td>
+                        오메가-3: 혈행 개선, 고지혈증 예방 (태음인 필수).<br>
+                        비타민 A/D: 호흡기 점막 보호 및 면역력 강화.<br>
+                        밀크씨슬: 간의 해독 작용 보조 (간열이 많은 경우 주의).
+                    </td>
+                </tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            st.header("🌟 태음인으로 추정되는 유명인")
+            st.caption("※ 알림: 이 내용은 인물의 대중적 이미지와 캐릭터를 바탕으로 한 재미 위주의 가상 분류입니다. 실제 의학적 체질 진단과는 다를 수 있으니 가볍게 즐겨주세요!")
+            st.markdown("""
+            **"듬직하고 끈기 있는 평화주의자"**
+
+            한국인에게 가장 많은 체질입니다. 골격이 굵고 듬직하며, 인내심과 끈기가 강합니다. 변화보다는 안정을 추구하며, 겉은 유해 보이나 속은 단단한 외유내강형입니다.
+
+            * **배우:** 마동석, 송강호, 최민식 (중후하고 묵직한 연기, 푸근한 인상 뒤의 파워)
+            * **가수:** 송창식, 양희은, 성시경 (뱃속 깊은 곳에서 울리는 웅장하고 편안한 성량)
+            * **K-pop 아이돌:** 창빈(Stray Kids), 휴닝카이(TXT), 신동 (탄탄한 피지컬과 팀의 중심을 잡는 무게감)
+            * **삼국지 장군:** **유비** (넓은 덕으로 사람을 품는 인내심, 묵묵히 때를 기다리는 신중함)
+            * **우리나라 위인:** 세종대왕 (고기를 좋아하고 앉아서 연구하기를 즐김), 김구
+            * **역사 속 위인:** 윈스턴 처칠 (뚝심 있는 리더십, 풍채)
+            * **동물:** 곰, 황소, 코끼리 (우직하고 힘이 세며 지구력이 좋음)
+            """)
+
+        elif my_code == 'SE': # 소음인
+            st.header("📋 소음인 상세 가이드")
+            
+            st.markdown("""
+            **1. 소음인의 특징**
+            * 몸이 찬 편입니다.
+            * 전반적인 체력이 약한 편입니다.
+            * 소화기의 기능이 약해지기 쉽습니다.
+            """)
+            st.subheader("🚨 건강이 안 좋아지면 나타나는 증상")
+            st.warning("""
+            * **전신:** 무리를 하지 않았는데도 피로감이 지속되고, 아침에 일어나기 힘듭니다.
+            * **소화:** 식욕이 떨어지고 소화가 잘 안 되며, 배에 가스가 찹니다.
+            * **배설:** 설사를 자주 하거나, 대변이 가늘면서 시원하지 않습니다.
+            * **기타:** 손발과 배가 차고, 특별한 이유 없이 마음이 늘 불안합니다.
+            """)
+            st.info("""
+            **💡 평소 생활 실천 사항**
+            1. **보온:** 항상 몸을 따뜻하게 합니다.
+            2. **휴식:** 과로를 피하고 적절한 휴식이 필요합니다.
+            3. **식사:** 규칙적인 식사가 중요하며, 따뜻한 성질의 음식이나 약간의 자극성 있는 조미료가 좋습니다.
+            """)
+
+            st.subheader("🍽️ 식품군별 권장 음식 상세")
+            st.markdown("""
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>권장 음식</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>곡류군</td><td>백미, 차조, 찹쌀, 감자, 옥수수 / (떡, 누룽지)</td></tr>
+                <tr><td>저지방 어육류</td><td>닭고기(껍질/기름 제거), 명태, 조기, 도미, 대구, 민어, 농어, 가자미, 멸치</td></tr>
+                <tr><td>중지방 어육류</td><td>삼치, 갈치, 장어, 민어, 도루묵</td></tr>
+                <tr><td>고지방 어육류</td><td>닭고기(껍질 포함), 개고기, 뱀장어</td></tr>
+                <tr><td>채소군</td><td>깻잎, 냉이, 시금치, 양배추, 브로콜리, 마늘, 파, 고추, 양파, 부추, 쑥</td></tr>
+                <tr><td>지방군/우유/과일</td><td>들깨, 참기름, 산양유 / 사과, 귤, 토마토, 복숭아, 대추, 유자</td></tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            st.subheader("🏥 소음인 체질 증상 및 질환")
+            st.markdown("""
+            **특성:** 신대비소(腎大脾小). 신장/생식기 기능은 좋으나 위장이 차고 소화력이 약함. 몸이 차고(냉증), 예민하며 체력이 약해지기 쉬움.
+
+            * **노화 (기력/소화):** 소화 기능 저하, 근감소증, 수족냉증, 기력 감퇴, 위암
+            * **수험생/청소년:** 체력 부족, 시험 불안, 예민성 복통.
+            * **여성:** 심한 생리통(냉증), 빈혈, 수족냉증.
+            * **일반 (면역/장):** 잦은 감기, 만성 설사, 멀미.
+
+            ### 🥗 추천 약재·음식·영양제
+            <table class="guide-table">
+            <thead>
+                <tr><th>분류</th><th>추천 목록 및 효능 요약</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-weight:bold;">한약재</td>
+                    <td>
+                        인삼(홍삼): 원기 회복, 소화기 강화, 면역력 증진 (소음인 최고 약재).<br>
+                        당귀·천궁: 혈액을 생성하고 순환시켜 생리통 및 빈혈 개선.<br>
+                        계피(육계)·생강(건강): 뱃속을 따뜻하게 하여 소화 불량 및 냉증 개선.<br>
+                        쑥(애엽): 자궁을 따뜻하게 하여 부인과 질환 예방.
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">음식</td>
+                    <td>
+                        닭고기: 따뜻한 성질의 단백질로 기력 보충.<br>
+                        마늘, 고추, 부추: 신진대사를 높이고 체온을 유지.<br>
+                        꿀, 대추: 위장을 편안하게 하고 신경을 안정(불면증).
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">영양제</td>
+                    <td>
+                        비타민 B군: 에너지 대사를 높여 만성 피로 회복.<br>
+                        철분/엽산: 빈혈 예방 및 혈액 생성 보조.<br>
+                        프로폴리스: 따뜻한 성질의 천연 항생제로 면역력 강화.
+                    </td>
+                </tr>
+            </tbody>
+            </table>
+            """, unsafe_allow_html=True)
+
+            st.markdown("---")
+            st.header("🌟 소음인으로 추정되는 유명인")
+            st.caption("※ 알림: 이 내용은 인물의 대중적 이미지와 캐릭터를 바탕으로 한 재미 위주의 가상 분류입니다. 실제 의학적 체질 진단과는 다를 수 있으니 가볍게 즐겨주세요!")
+            st.markdown("""
+            **"섬세하고 완벽을 추구하는 전략가"**
+            
+            이목구비가 오밀조밀하고 단정합니다. 꼼꼼하고 내성적이며 완벽주의 성향이 있습니다. 체력이 약해 쉽게 피로를 느끼지만, 논리적이고 세심한 감수성을 가졌습니다.
+            
+            * **배우:** 박보검, 정유미, 한석규 (부드럽고 지적인 이미지, 섬세한 감정 연기)
+            * **가수:** 심수봉, 김광석, 아이유(IU) (마음을 파고드는 애절한 감성과 철저한 자기관리)
+            * **K-pop 아이돌:** 장원영(IVE), 민지(NewJeans), 설윤(NMIXX) (청순하고 고전적인 미인상, 차분하고 지적인 이미지)
+            * **삼국지 장군:** **제갈량** (뛰어난 지략, 돌다리도 두들겨 보는 신중함과 꼼꼼함)
+            * **우리나라 위인:** 이순신 장군 (철저한 기록과 신중한 전략), 퇴계 이황
+            * **역사 속 위인:** 링컨 (사색적이고 신중하며 마른 체형)
+            * **동물:** 사슴, 고양이 (예민하고 깔끔하며 독립적임)
+            """)
+
+        st.markdown("---")
+        
+        # [수정] 공유하기 및 인쇄 버튼 배치
+        share_btn_code = """
+        <script>
+        async function sharePage() {
+            const shareData = {
+                title: '사상체질 자가진단',
+                text: '나의 체질을 확인해보세요! 디스코 한의원 사상체질 자가진단',
+                url: 'http://www.mysasang.com/'
+            };
+            if (navigator.share) {
+                try {
+                    await navigator.share(shareData);
+                } catch (err) {
+                    console.log('Share canceled');
+                }
+            } else {
+                // Fallback: Copy to clipboard
+                const el = document.createElement('textarea');
+                el.value = 'http://www.mysasang.com/';
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                alert('주소가 복사되었습니다! 메신저나 SNS에 붙여넣기(Ctrl+V) 하세요.');
+            }
+        }
+        </script>
+        <style>
+            .custom-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background-color: #ffffff;
+                color: #31333F;
+                border-radius: 0.5rem;
+                border: 1px solid rgba(49, 51, 63, 0.2);
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                width: 100%;
+                height: 50px;
+                font-family: "Source Sans Pro", sans-serif;
+                margin-bottom: 10px;
+            }
+            .custom-btn:hover {
+                border-color: #ff4b4b;
+                color: #ff4b4b;
+                background-color: #fff;
+            }
+        </style>
+        <button class="custom-btn" onclick="sharePage()">
+            🔗 지인과 공유하기
+        </button>
+        """
+        
+        print_btn_code = """
+        <script>function printPage() { window.parent.print(); }</script>
+        <style>
+            .custom-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background-color: #ffffff;
+                color: #31333F;
+                border-radius: 0.5rem;
+                border: 1px solid rgba(49, 51, 63, 0.2);
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                width: 100%;
+                height: 50px;
+                font-family: "Source Sans Pro", sans-serif;
+                margin-bottom: 10px;
+            }
+            .custom-btn:hover {
+                border-color: #ff4b4b;
+                color: #ff4b4b;
+                background-color: #fff;
+            }
+        </style>
+        <button class="custom-btn" onclick="printPage()">
+            🖨️ 결과 저장/인쇄
+        </button>
+        """
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            components.html(share_btn_code, height=60)
+        with c2:
+            components.html(print_btn_code, height=60)
+        
+        if st.button("🔄 처음부터 다시하기", use_container_width=True):
+            st.session_state.clear()
+            st.rerun()
+
+if __name__ == '__main__':
+    main()
